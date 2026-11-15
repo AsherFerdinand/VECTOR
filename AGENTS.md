@@ -1,12 +1,15 @@
 # VECTOR development instructions
 
-VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone is v0.1, Simulation Foundation.
+VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone is v0.2A, Autonomous Navigation Foundation.
 
 ## Architecture
 
 - Keep simulation calculations independent of React and Three.js; rendering consumes state.
 - Use SI units internally and explicit TypeScript interfaces.
 - Keep physics deterministic for identical simulation-step inputs.
+- Derive navigation and rendering from the same structured town data.
+- Both driving modes must use the same vehicle model; run autonomous control on fixed simulation steps.
+- Label map-based navigation as using perfect localisation; do not imply dynamic perception or obstacle response.
 - Prefer simple, readable TypeScript and necessary dependencies only.
 - Preserve the distinction between simulator ground truth and future vehicle observations.
 
@@ -25,7 +28,7 @@ VECTOR is a lightweight autonomous-driving engineering laboratory. The current m
 ## Documentation
 
 - Update README when user-visible capabilities change; distinguish plans from implemented behavior.
-- Update docs/engineering-model.md when model assumptions change.
+- Update docs/engineering-model.md when vehicle assumptions change and docs/navigation-model.md when navigation assumptions or controller tuning change.
 - Do not claim AUTOSAR compliance or real-world autonomous-driving safety.
 
 ## Verification

@@ -11,6 +11,7 @@ import type { CameraMode } from "./simulation/types";
 import { keyboardControls } from "./controls/keyboard";
 import { Scene } from "./rendering/Scene";
 import { Dashboard, cameraLabels } from "./components/Dashboard";
+import { Minimap } from "./components/Minimap";
 
 class SceneBoundary extends Component<
   { children: ReactNode },
@@ -39,18 +40,33 @@ export default function App() {
   const [simulation] = useState(() => new Simulation());
   const [camera, setCamera] = useState<CameraMode>("follow");
   const [snapshot, setSnapshot] = useState(() => simulation.snapshot);
+  const [navigation, setNavigation] = useState(() => simulation.navigation);
+  const [engineering, setEngineering] = useState(true);
   const keyboard = useRef<ReturnType<typeof keyboardControls> | null>(null);
-  const refresh = () => setSnapshot(simulation.snapshot);
+  const refresh = () => {
+    setSnapshot(simulation.snapshot);
+    setNavigation(simulation.navigation);
+  };
   const reset = () => {
     keyboard.current?.clear();
     simulation.reset();
     refresh();
   };
   useEffect(() => {
-    const controls = keyboardControls(() => {
-      simulation.reset();
-      setSnapshot(simulation.snapshot);
-    }, setCamera);
+    const controls = keyboardControls(
+      () => {
+        simulation.reset();
+        setSnapshot(simulation.snapshot);
+        setNavigation(simulation.navigation);
+      },
+      setCamera,
+      () => {
+        if (simulation.navigation.mode === "AUTONOMOUS") {
+          simulation.cancelAutonomy();
+          setNavigation(simulation.navigation);
+        }
+      },
+    );
     keyboard.current = controls;
     let previous: number | undefined;
     let lastDisplay = 0;
@@ -63,6 +79,7 @@ export default function App() {
       previous = now;
       if (now - lastDisplay >= 100) {
         setSnapshot(simulation.snapshot);
+        setNavigation(simulation.navigation);
         lastDisplay = now;
       }
       frame = requestAnimationFrame(tick);
@@ -73,6 +90,7 @@ export default function App() {
       if (document.hidden) {
         simulation.pause();
         setSnapshot(simulation.snapshot);
+        setNavigation(simulation.navigation);
       }
     };
     document.addEventListener("visibilitychange", visibility);
@@ -94,8 +112,11 @@ export default function App() {
         </a>
         <div className="project-name">
           Autonomous Driving & Engineering Studio
-          <span>SIMULATION FOUNDATION / v0.1</span>
+          <span>AUTONOMOUS NAVIGATION / v0.2A</span>
         </div>
+        <span className="mode-badge" data-mode={navigation.mode}>
+          {navigation.mode}
+        </span>
         <div className={`status ${snapshot.running ? "running" : ""}`}>
           <i />
           {snapshot.running ? "RUNNING" : "PAUSED"}
@@ -105,8 +126,8 @@ export default function App() {
         <section className="workspace">
           <div className="workspace-title">
             <div>
-              <span className="eyebrow">EXPERIMENT 001</span>
-              <h1>Manual vehicle dynamics</h1>
+              <span className="eyebrow">EXPERIMENT 002</span>
+              <h1>Map-based autonomous navigation</h1>
             </div>
             <span className="environment-label">
               VECTOR TOWN <span> / </span> DAYLIGHT
@@ -114,13 +135,17 @@ export default function App() {
           </div>
           <div className="viewport">
             <SceneBoundary>
-              <Scene simulation={simulation} cameraMode={camera} />
+              <Scene
+                simulation={simulation}
+                cameraMode={camera}
+                engineering={engineering}
+              />
             </SceneBoundary>
             <div className="viewport-label">
               <span className="live-dot" /> {cameraLabels[camera]}
               <small>GROUND TRUTH</small>
             </div>
-            <div className="axis-label">X EAST · Y NORTH · SI UNITS</div>
+            <div className="axis-label">PERFECT LOCALISATION · STATIC MAP</div>
             <div className="viewport-caption">
               SIMULATION ENVIRONMENT<span>01 / COMPACT TOWN</span>
             </div>
@@ -172,6 +197,50 @@ export default function App() {
               )}
             </div>
           </div>
+          <div
+            className="navigation-strip"
+            aria-label="Live navigation summary"
+          >
+            <div>
+              <span>Navigation state</span>
+              <strong>{navigation.state.replaceAll("_", " ")}</strong>
+            </div>
+            <div>
+              <span>Target speed</span>
+              <strong>
+                {navigation.targetSpeed === null
+                  ? "—"
+                  : (navigation.targetSpeed * 3.6).toFixed(1) + " km/h"}
+              </strong>
+            </div>
+            <div>
+              <span>Cross-track error</span>
+              <strong>
+                {navigation.crossTrackError === null
+                  ? "—"
+                  : navigation.crossTrackError.toFixed(2) + " m"}
+              </strong>
+            </div>
+            <div>
+              <span>Route progress</span>
+              <strong>
+                {navigation.mode === "AUTONOMOUS"
+                  ? (navigation.progress * 100).toFixed(1) + " %"
+                  : "—"}
+              </strong>
+            </div>
+          </div>
+          <div className="view-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={engineering}
+                onChange={(e) => setEngineering(e.target.checked)}
+              />{" "}
+              Engineering overlay
+            </label>
+            <span>Turquoise: planned · Amber: actual</span>
+          </div>
           <div className="keyboard-reference">
             <span className="eyebrow">MANUAL CONTROLS</span>
             <span>
@@ -196,14 +265,55 @@ export default function App() {
             </span>
           </div>
         </section>
-        <Dashboard state={snapshot} camera={camera} />
+        <div
+          className="sidebar"
+          onClick={(event) => {
+            if (event.detail > 0 && event.target instanceof HTMLElement)
+              event.target.closest("button")?.blur();
+          }}
+        >
+          <Minimap
+            graph={simulation.graph}
+            navigation={navigation}
+            vehicle={snapshot.vehicle}
+            canSelectStart={
+              !snapshot.running && Math.abs(snapshot.vehicle.velocity) <= 0.01
+            }
+            onStart={(position) => {
+              keyboard.current?.clear();
+              const accepted = simulation.setStart(position);
+              refresh();
+              return accepted;
+            }}
+            onDestination={(position) => {
+              const accepted = simulation.planTo(position);
+              refresh();
+              return accepted;
+            }}
+            onActivate={() => {
+              keyboard.current?.clear();
+              simulation.activateAutonomy();
+              refresh();
+            }}
+            onCancel={() => {
+              keyboard.current?.clear();
+              simulation.cancelAutonomy();
+              refresh();
+            }}
+            onClear={() => {
+              simulation.clearRoute();
+              refresh();
+            }}
+          />
+          <Dashboard state={snapshot} camera={camera} navigation={navigation} />
+        </div>
       </main>
       <footer>
         <span>
           VECTOR <b> / </b> Build the world. Sense the road. Navigate
           autonomously.
         </span>
-        <span>EDUCATIONAL SIMULATION · v0.1</span>
+        <span>EDUCATIONAL SIMULATION · v0.2A</span>
       </footer>
     </div>
   );
