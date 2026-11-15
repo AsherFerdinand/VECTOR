@@ -54,11 +54,11 @@ export function Vehicle({ simulation }: { simulation: Simulation }) {
     <group ref={vehicle}>
       <mesh position={[1.35, 0.66, 0]}>
         <boxGeometry args={[4.5, 0.55, 1.8]} />
-        <meshLambertMaterial color="#52d1bb" />
+        <meshLambertMaterial color="#e0e9e5" />
       </mesh>
       <mesh position={[1.35, 0.95, 0]}>
         <boxGeometry args={[3.9, 0.25, 1.75]} />
-        <meshLambertMaterial color="#68dac7" />
+        <meshLambertMaterial color="#f0f4ee" />
       </mesh>
       <mesh position={[1.1, 1.34, 0]}>
         <boxGeometry args={[2.2, 0.65, 1.5]} />
@@ -66,7 +66,7 @@ export function Vehicle({ simulation }: { simulation: Simulation }) {
       </mesh>
       <mesh position={[1.1, 1.69, 0]}>
         <boxGeometry args={[2.3, 0.09, 1.58]} />
-        <meshLambertMaterial color="#72dfcb" />
+        <meshLambertMaterial color="#e4ede7" />
       </mesh>
       {[-1, 1].map((side) => (
         <group key={side}>
@@ -82,7 +82,7 @@ export function Vehicle({ simulation }: { simulation: Simulation }) {
           </mesh>
           <mesh position={[1.8, 1.2, side * 0.99]}>
             <boxGeometry args={[0.35, 0.16, 0.25]} />
-            <meshLambertMaterial color="#52d1bb" />
+            <meshLambertMaterial color="#e0e9e5" />
           </mesh>
         </group>
       ))}

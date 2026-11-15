@@ -4,14 +4,17 @@ import type { CameraMode } from "../simulation/types";
 import { Cameras } from "./Cameras";
 import { Town } from "./Town";
 import { Vehicle } from "./Vehicle";
+import { RouteOverlay } from "./RouteOverlay";
 
 /** Rendering reads ground truth only; physics is advanced by the application clock. */
 export function Scene({
   simulation,
   cameraMode,
+  engineering = true,
 }: {
   simulation: Simulation;
   cameraMode: CameraMode;
+  engineering?: boolean;
 }) {
   return (
     <Canvas
@@ -24,6 +27,7 @@ export function Scene({
       <ambientLight intensity={1.5} />
       <directionalLight position={[35, 70, 20]} intensity={2.1} />
       <Town />
+      <RouteOverlay simulation={simulation} engineering={engineering} />
       <Vehicle simulation={simulation} />
       <Cameras simulation={simulation} mode={cameraMode} />
     </Canvas>

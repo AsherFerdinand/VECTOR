@@ -11,6 +11,7 @@ const emptyInput = (): DriverInput => ({
 export function keyboardControls(
   reset: () => void,
   camera: (mode: CameraMode) => void,
+  manualTakeover: () => void = () => {},
 ) {
   let input = emptyInput();
   const actions: Record<string, keyof DriverInput> = {
@@ -30,8 +31,15 @@ export function keyboardControls(
     input = emptyInput();
   };
   const handle = (event: KeyboardEvent) => {
+    // Always release keys, including when focus moved into the map or a form.
+    if (event.type === "keyup" && actions[event.code]) {
+      pressed.delete(event.code);
+      input = emptyInput();
+      for (const code of pressed) input[actions[code]] = true;
+      return;
+    }
     if (
-      event.target instanceof HTMLElement &&
+      event.target instanceof Element &&
       event.target.closest('input, textarea, select, [contenteditable="true"]')
     )
       return;
@@ -39,8 +47,8 @@ export function keyboardControls(
       return;
     if (actions[event.code]) {
       event.preventDefault();
-      if (event.type === "keydown") pressed.add(event.code);
-      else pressed.delete(event.code);
+      manualTakeover();
+      pressed.add(event.code);
       input = emptyInput();
       for (const code of pressed) input[actions[code]] = true;
     }
@@ -60,6 +68,14 @@ export function keyboardControls(
   const visibility = () => {
     if (document.hidden) clear();
   };
+  const focus = (event: FocusEvent) => {
+    if (
+      event.target instanceof Element &&
+      event.target.closest('input, textarea, select, [role="application"]')
+    )
+      clear();
+  };
+  document.addEventListener("focusin", focus);
   window.addEventListener("keydown", handle);
   window.addEventListener("keyup", handle);
   window.addEventListener("blur", clear);
@@ -68,6 +84,7 @@ export function keyboardControls(
     read: () => input,
     clear,
     dispose: () => {
+      document.removeEventListener("focusin", focus);
       window.removeEventListener("keydown", handle);
       window.removeEventListener("keyup", handle);
       window.removeEventListener("blur", clear);
