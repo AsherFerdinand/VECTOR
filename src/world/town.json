@@ -1,0 +1,114 @@
+{
+  "roadWidth": 9,
+  "sidewalkWidth": 2,
+  "intersections": [
+    [-27, -27],
+    [-27, 27],
+    [27, -27],
+    [27, 27]
+  ],
+  "roads": [
+    { "id": "south", "from": [-55, -27], "to": [55, -27] },
+    { "id": "north", "from": [-55, 27], "to": [55, 27] },
+    { "id": "west", "from": [-27, -55], "to": [-27, 55] },
+    { "id": "east", "from": [27, -55], "to": [27, 55] }
+  ],
+  "buildings": [
+    {
+      "x": -43,
+      "y": -43,
+      "width": 15,
+      "depth": 13,
+      "height": 8,
+      "color": "#a8b9bd"
+    },
+    {
+      "x": -8,
+      "y": -43,
+      "width": 16,
+      "depth": 13,
+      "height": 12,
+      "color": "#b9a993"
+    },
+    {
+      "x": 12,
+      "y": -43,
+      "width": 12,
+      "depth": 13,
+      "height": 7,
+      "color": "#b7c4c0"
+    },
+    {
+      "x": 43,
+      "y": -43,
+      "width": 13,
+      "depth": 14,
+      "height": 10,
+      "color": "#879da9"
+    },
+    {
+      "x": -43,
+      "y": -7,
+      "width": 13,
+      "depth": 17,
+      "height": 13,
+      "color": "#b5b9b5"
+    },
+    {
+      "x": -43,
+      "y": 13,
+      "width": 13,
+      "depth": 11,
+      "height": 7,
+      "color": "#9eaaa0"
+    },
+    {
+      "x": 43,
+      "y": -10,
+      "width": 13,
+      "depth": 14,
+      "height": 8,
+      "color": "#b5a48e"
+    },
+    {
+      "x": 43,
+      "y": 11,
+      "width": 13,
+      "depth": 15,
+      "height": 15,
+      "color": "#9dafb5"
+    },
+    {
+      "x": -43,
+      "y": 43,
+      "width": 14,
+      "depth": 13,
+      "height": 8,
+      "color": "#a9b5ad"
+    },
+    {
+      "x": -10,
+      "y": 43,
+      "width": 15,
+      "depth": 13,
+      "height": 10,
+      "color": "#b0a18c"
+    },
+    {
+      "x": 11,
+      "y": 43,
+      "width": 14,
+      "depth": 13,
+      "height": 7,
+      "color": "#9eafb8"
+    },
+    {
+      "x": 43,
+      "y": 43,
+      "width": 14,
+      "depth": 14,
+      "height": 12,
+      "color": "#a5b7b5"
+    }
+  ]
+}
