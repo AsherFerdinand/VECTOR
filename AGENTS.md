@@ -1,6 +1,6 @@
 # VECTOR development instructions
 
-VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone is v0.2A, Autonomous Navigation Foundation.
+VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone combines v0.2B collision engineering and v0.3 virtual perception.
 
 ## Architecture
 
@@ -9,7 +9,11 @@ VECTOR is a lightweight autonomous-driving engineering laboratory. The current m
 - Keep physics deterministic for identical simulation-step inputs.
 - Derive navigation and rendering from the same structured town data.
 - Both driving modes must use the same vehicle model; run autonomous control on fixed simulation steps.
-- Label map-based navigation as using perfect localisation; do not imply dynamic perception or obstacle response.
+- Keep exact world geometry in collision checks and sensor generators; online autonomous safety must use sensor observations, not hidden obstacle geometry.
+- Keep ground-truth objects, raw measurements, and processed detections distinct. Debug object IDs are not inferred perception.
+- Label perfect localisation and simplified geometric sensors explicitly; do not imply learned perception or production AEB.
+- Schedule sensors from simulation time with deterministic seeded noise; rendering FPS must not drive measurements.
+- Keep obstacle placement shared between rendering, collision, and sensor geometry. Manual control must not be silently overridden by autonomous safety.
 - Prefer simple, readable TypeScript and necessary dependencies only.
 - Preserve the distinction between simulator ground truth and future vehicle observations.
 
@@ -28,7 +32,7 @@ VECTOR is a lightweight autonomous-driving engineering laboratory. The current m
 ## Documentation
 
 - Update README when user-visible capabilities change; distinguish plans from implemented behavior.
-- Update docs/engineering-model.md when vehicle assumptions change and docs/navigation-model.md when navigation assumptions or controller tuning change.
+- Update the relevant engineering document when vehicle, navigation, collision, sensor, or protective-braking assumptions change. Keep historical milestone results identified as historical.
 - Do not claim AUTOSAR compliance or real-world autonomous-driving safety.
 
 ## Verification

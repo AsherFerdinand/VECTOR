@@ -819,3 +819,300 @@ main {
     margin-top: 5px;
   }
 }
+
+/* Measurements and physical ground truth remain visually distinct. */
+.physical-strip {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px solid #344653;
+  border-radius: 5px;
+  background: #17212c;
+}
+.physical-strip span {
+  display: block;
+  font-size: 9px;
+  color: #91a5b8;
+  margin-bottom: 8px;
+}
+.physical-strip strong {
+  font-size: 11px;
+  font-weight: 500;
+  color: #c6d9e7;
+}
+.physical-strip .warning {
+  color: #f0aa8e;
+}
+.sensor-explorer {
+  border: 1px solid #354a5a;
+  border-radius: 7px;
+  background: #131d29;
+  margin-top: 20px;
+  overflow: hidden;
+}
+.sensor-heading {
+  padding: 20px 20px 15px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.sensor-heading h2 {
+  margin: 8px 0 0;
+  font-size: 20px;
+}
+.sensor-badge {
+  font-size: 9px;
+  color: #9abfd5;
+  border: 1px solid #37576b;
+  padding: 7px;
+  border-radius: 4px;
+}
+.sensor-tabbar {
+  display: flex;
+  gap: 5px;
+  padding: 0 20px 14px;
+  border-bottom: 1px solid #293c4c;
+}
+.sensor-tabbar button {
+  min-width: 75px;
+  padding: 10px 16px;
+}
+.sensor-tabbar button[aria-selected="true"] {
+  background: #213f53;
+  color: #b4e3ff;
+  border-color: #6ca9cc;
+}
+.sensor-panel {
+  padding: 0 20px 20px;
+}
+.sensor-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 13px 0;
+}
+.sensor-panel-header p {
+  font-size: 11px;
+  color: #a8bed0;
+  margin: 0;
+}
+.sensor-overlay-toggle {
+  font-size: 10px;
+  color: #a6c9dd;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.sensor-overlay-toggle input {
+  accent-color: #74c7f6;
+}
+.sensor-view-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(150px, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+.sensor-plot {
+  width: 100%;
+  max-height: 265px;
+  display: block;
+  background: #0e1b28;
+  border: 1px solid #2d465a;
+  border-radius: 5px;
+}
+.radar-plot {
+  padding: 12px;
+  min-height: 180px;
+}
+.sensor-metrics {
+  margin: 0;
+}
+.sensor-metrics > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid #2a3b4a;
+  padding: 11px 0;
+}
+.sensor-metrics dt {
+  font-size: 10px;
+}
+.sensor-metrics dd {
+  font-size: 12px;
+  color: #c2dfef;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.sensor-model-note,
+.sensor-empty {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #889eb1;
+  margin: 15px 0 0;
+}
+.sensor-camera-image {
+  position: relative;
+  background: #0a121a;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid #35556a;
+}
+.sensor-camera-image canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+}
+.camera-image-caption {
+  position: absolute;
+  bottom: 9px;
+  left: 10px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  background: #11212dbb;
+  padding: 6px;
+  color: #c5e3f1;
+}
+.sensor-detections {
+  margin-top: 16px;
+  overflow: auto;
+  max-height: 240px;
+  border: 1px solid #2d4153;
+  border-radius: 5px;
+}
+.sensor-detections table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.sensor-detections th {
+  font-size: 9px;
+  font-weight: 500;
+  color: #8eb1cb;
+  background: #182c3c;
+  position: sticky;
+  top: 0;
+}
+.sensor-detections td,
+.sensor-detections th {
+  padding: 10px;
+  border-bottom: 1px solid #293d4e;
+}
+.sensor-detections td {
+  color: #bdccd9;
+  font-variant-numeric: tabular-nums;
+}
+.sensor-detections .sensor-empty {
+  padding: 0 12px 12px;
+}
+.sensor-compute-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.sensor-safety-reason {
+  background: #1a302c;
+  border-left: 2px solid #80bca5;
+  padding: 12px;
+  color: #adcfbf;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.sensor-safety-reason.is-braking {
+  background: #3a2526;
+  color: #f0b2a7;
+  border-color: #e28478;
+}
+.sensor-contact {
+  color: #f0aa8e;
+  font-size: 11px;
+}
+.sensor-clearance {
+  font-size: 11px;
+  color: #a0c3b8;
+}
+.sensor-status-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.sensor-status-list > div {
+  border: 1px solid #324757;
+  padding: 10px;
+  border-radius: 4px;
+}
+.sensor-status-list strong {
+  font-size: 10px;
+  font-weight: 500;
+  color: #bfd9e7;
+}
+.sensor-status-list span {
+  display: block;
+  font-size: 9px;
+  color: #8da9bc;
+  margin-top: 8px;
+}
+@media (max-width: 1050px) {
+  .sensor-view-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sensor-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 15px;
+  }
+  .sensor-metrics > div {
+    gap: 5px;
+  }
+  .sensor-compute-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+@media (max-width: 760px) {
+  .physical-strip {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .sensor-panel,
+  .sensor-heading {
+    padding: 16px 12px;
+  }
+  .sensor-tabbar {
+    padding: 0 12px 12px;
+  }
+  .sensor-tabbar button {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 4px;
+  }
+  .sensor-badge {
+    display: none;
+  }
+  .sensor-status-list {
+    grid-template-columns: 1fr;
+  }
+  .sensor-metrics dd {
+    font-size: 11px;
+  }
+  .sensor-heading h2 {
+    font-size: 18px;
+  }
+  .sensor-panel-header {
+    margin-top: 0;
+  }
+  .sensor-explorer {
+    min-width: 0;
+  }
+  .sensor-compute-grid,
+  .sensor-view-grid {
+    min-width: 0;
+  }
+}

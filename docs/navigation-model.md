@@ -136,3 +136,39 @@ Scenario E uses integration tests to verify that manual takeover transfers comma
 The map is a compact orthogonal town, with no lane changes or endpoint turnarounds. A* optimizes distance, not travel time or traffic behavior. Curved connections are tangent circular samples with curvature changes at their joins; they are not clothoids. Pure Pursuit can cut inside a curve and retains discretisation and tracking error. Its lateral-acceleration constraint is a planning approximation, not a dynamic tyre-force model.
 
 Perfect localisation and a static map are explicit baseline assumptions. Traffic lights, buildings, and crossings are not perceived or obeyed. There are no moving road users, collisions, dynamic replanning around obstacles, sensor noise, or localisation uncertainty. Manual driving is still unrestricted by road boundaries. Neither passing these tests nor a visually completed route demonstrates real-world autonomous-driving safety. Windows-device FPS remains a separate unverified performance target.
+
+## v0.3 controller update and regression results
+
+The sections and measurements above document the **historical v0.2A, collision-free and sensor-free baseline**. Current collision constraints, geometric sensors, and sensor-based protective braking are described in [Collision engineering and virtual perception](collision-sensors.md). The vehicle equations and fixed 0.01 s integration step are unchanged.
+
+### Lateral-acceleration investigation
+
+The original reference-curvature speed envelope did not fully account for Pure Pursuit cutting inside a curve, transient applied steering, and proportional speed-control lag. It produced measured `v² * abs(tan(delta_applied)) / L` peaks of 1.55698 m/s² in the right turn and 1.58146 m/s² through multiple intersections, above the intended 1.5 m/s² budget.
+
+The controller now computes an additional tracking target:
+
+```text
+kappa_tracking = max(abs(tan(delta_applied)), abs(tan(delta_requested))) / L
+v_tracking = sqrt(1.5 * 0.95 / kappa_tracking)
+v_reference_reserved = v_reference * sqrt(0.95)  [when curve-limited]
+v_controller_target = min(v_reference_reserved, v_tracking)
+```
+
+Near zero curvature, the tracking limit is the existing 6 m/s navigation cap; straight-path target speed is unchanged. The 5% lateral reserve accommodates speed-controller lag and realised Pure Pursuit curvature. It adjusts only the autonomous speed target: it does not change the bicycle model, impose an artificial velocity clamp, weaken the 1.5 m/s² acceptance budget, or alter manual-driving limits.
+
+Five regression scenarios check lateral acceleration using actual velocity and applied steering both before and after each integration step, with an acceptance tolerance of **1.500001 m/s²**. The following current headless measurements retain the earlier cross-track and stopping thresholds:
+
+| Scenario               | Max CTE (m) | RMS CTE (m) | Final error (m) | Final speed (m/s) | Time (s) | Peak model lateral acceleration (m/s²) |
+| ---------------------- | ----------: | ----------: | --------------: | ----------------: | -------: | -------------------------------------: |
+| Straight               |       0.000 |       0.000 |        0.101804 |                 0 |     7.67 |                                      0 |
+| Right turn             |    0.258224 |    0.103697 |        0.086823 |                 0 |    14.96 |                               1.461621 |
+| Left turn              |    0.163971 |    0.058155 |        0.101604 |                 0 |    17.10 |                               1.463489 |
+| Multiple intersections |    0.256085 |    0.083397 |        0.031543 |                 0 |    47.25 |                               1.463517 |
+
+These results demonstrate the correction in the measured scenarios; they are not a formal global handling constraint for arbitrary initial speed, steering, pose error, or future trajectories. Maximum straight-line speed remains about 5.9991 m/s.
+
+### Physical route containment
+
+The current production `Simulation` also runs collision resolution, full-body road classification, static route preflight, real sensor scheduling, and safety arbitration. The right-turn and multiple-intersection regressions complete with zero collisions and zero final speed, but each records **one partial road-departure event** from tracking error. Their nominal reference-path footprints pass static clearance with the default margin. Static preflight therefore does not guarantee that the actual tracked body remains entirely on the pavement. Road departure is an exposed engineering warning and does not act as an invisible collision wall.
+
+The right-turn run has 150 LiDAR frames over 14.96 s; the multiple-intersection run has 473 frames over 47.25 s. Sensor generation remains tied to simulation time rather than rendering rate. The [collision and sensor validation](collision-sensors.md#production-integration-and-navigation-regression) distinguishes real-scheduler integration from isolated supervisor tests.

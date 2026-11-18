@@ -153,7 +153,7 @@ export function Dashboard({
       <p className="scope-note">
         Ground-truth simulation.
         <br />
-        Perfect localisation · no collision response.
+        Perfect localisation · stop-at-contact physics.
       </p>
     </aside>
   );

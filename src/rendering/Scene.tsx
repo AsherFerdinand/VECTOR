@@ -5,16 +5,25 @@ import { Cameras } from "./Cameras";
 import { Town } from "./Town";
 import { Vehicle } from "./Vehicle";
 import { RouteOverlay } from "./RouteOverlay";
+import { SensorOverlays } from "./SensorOverlays";
+import { SensorCamera } from "./SensorCamera";
+import type { SensorSource } from "../sensors/types";
 
 /** Rendering reads ground truth only; physics is advanced by the application clock. */
 export function Scene({
   simulation,
   cameraMode,
   engineering = true,
+  sensorTab = "lidar",
+  sensorOverlay = false,
+  collisionOverlay = false,
 }: {
   simulation: Simulation;
   cameraMode: CameraMode;
   engineering?: boolean;
+  sensorTab?: SensorSource | "compute";
+  sensorOverlay?: boolean;
+  collisionOverlay?: boolean;
 }) {
   return (
     <Canvas
@@ -27,9 +36,20 @@ export function Scene({
       <ambientLight intensity={1.5} />
       <directionalLight position={[35, 70, 20]} intensity={2.1} />
       <Town />
-      <RouteOverlay simulation={simulation} engineering={engineering} />
-      <Vehicle simulation={simulation} />
+      <group userData={{ sensorDebug: true }}>
+        <RouteOverlay simulation={simulation} engineering={engineering} />
+      </group>
+      <group userData={{ sensorCameraHidden: true }}>
+        <Vehicle simulation={simulation} />
+      </group>
       <Cameras simulation={simulation} mode={cameraMode} />
+      <SensorOverlays
+        simulation={simulation}
+        source={sensorTab}
+        enabled={sensorOverlay}
+        collisionEnabled={collisionOverlay}
+      />
+      <SensorCamera simulation={simulation} enabled={sensorTab === "camera"} />
     </Canvas>
   );
 }

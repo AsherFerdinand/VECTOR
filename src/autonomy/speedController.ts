@@ -8,6 +8,7 @@ export const NAVIGATION_LIMITS = Object.freeze({
   speedGain: 2.5,
   stopBuffer: 0.6,
   brakingLead: 3,
+  trackingReserve: 0.95,
 });
 
 /** Backward braking envelopes anticipate every upcoming curve, not just current curvature. */
@@ -61,4 +62,32 @@ export function speedControl(
   return velocity >= 0
     ? Math.max(acceleration, -velocity / dt)
     : Math.min(VEHICLE.maxBraking, -velocity / dt);
+}
+
+/** The reference curve is not the realised bicycle curvature. Reserve 5% of the
+ * lateral budget for pursuit/longitudinal tracking error, and cap speed using
+ * both current and requested steering. This changes the controller target only;
+ * velocity and vehicle dynamics remain untouched. */
+export function trackingTargetSpeed(
+  reference: { speed: number; approachingTurn: boolean },
+  actualSteering: number,
+  requestedSteering: number,
+): number {
+  const curvature =
+    Math.max(
+      Math.abs(Math.tan(actualSteering)),
+      Math.abs(Math.tan(requestedSteering)),
+    ) / VEHICLE.wheelbase;
+  const trackingLimit =
+    curvature > 1e-6
+      ? Math.sqrt(
+          (NAVIGATION_LIMITS.lateralAcceleration *
+            NAVIGATION_LIMITS.trackingReserve) /
+            curvature,
+        )
+      : NAVIGATION_LIMITS.maxSpeed;
+  const referenceLimit = reference.approachingTurn
+    ? reference.speed * Math.sqrt(NAVIGATION_LIMITS.trackingReserve)
+    : reference.speed;
+  return Math.min(referenceLimit, trackingLimit);
 }

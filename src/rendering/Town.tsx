@@ -1,4 +1,12 @@
 import { town, type Building } from "../world/town";
+import {
+  trafficLightPlacements,
+  treePlacements,
+  TRAFFIC_LIGHT_POLE_WIDTH,
+  TRAFFIC_LIGHT_POLE_HEIGHT,
+  TREE_TRUNK_WIDTH,
+  TREE_TRUNK_HEIGHT,
+} from "../world/objects";
 
 function Box({
   position,
@@ -66,7 +74,15 @@ function TrafficLight({
 }) {
   return (
     <group position={[x, 0, -y]} rotation={[0, angle, 0]}>
-      <Box position={[0, 1.9, 0]} size={[0.13, 3.8, 0.13]} color="#38494d" />
+      <Box
+        position={[0, TRAFFIC_LIGHT_POLE_HEIGHT / 2, 0]}
+        size={[
+          TRAFFIC_LIGHT_POLE_WIDTH,
+          TRAFFIC_LIGHT_POLE_HEIGHT,
+          TRAFFIC_LIGHT_POLE_WIDTH,
+        ]}
+        color="#38494d"
+      />
       <Box position={[0, 3.5, 0]} size={[0.45, 1.05, 0.35]} color="#17232a" />
       {["#de6258", "#b99a52", "#4b786b"].map((color, i) => (
         <mesh
@@ -155,28 +171,27 @@ export function Town() {
               );
             }),
           )}
-          <TrafficLight x={-5.6} y={-5.6} angle={0} />
-          <TrafficLight x={5.6} y={5.6} angle={Math.PI} />
         </group>
+      ))}
+      {trafficLightPlacements.map((p) => (
+        <TrafficLight key={p.id} x={p.x} y={p.y} angle={p.angle} />
       ))}
       {town.buildings.map((building, i) => (
         <BuildingMesh key={i} building={building} />
       ))}
-      {[-14, -7, 0, 7, 14].flatMap((x) =>
-        [-13, 13].map((y) => (
-          <group key={`${x},${y}`} position={[x, 0, -y]}>
-            <Box
-              position={[0, 1.2, 0]}
-              size={[0.4, 2.4, 0.4]}
-              color="#766e58"
-            />
-            <mesh position={[0, 3.1, 0]}>
-              <icosahedronGeometry args={[2.1, 0]} />
-              <meshLambertMaterial color="#426a59" />
-            </mesh>
-          </group>
-        )),
-      )}
+      {treePlacements.map(({ id, x, y }) => (
+        <group key={id} position={[x, 0, -y]}>
+          <Box
+            position={[0, TREE_TRUNK_HEIGHT / 2, 0]}
+            size={[TREE_TRUNK_WIDTH, TREE_TRUNK_HEIGHT, TREE_TRUNK_WIDTH]}
+            color="#766e58"
+          />
+          <mesh position={[0, 3.1, 0]}>
+            <icosahedronGeometry args={[2.1, 0]} />
+            <meshLambertMaterial color="#426a59" />
+          </mesh>
+        </group>
+      ))}
       <Box position={[0, 0.1, 0]} size={[23, 0.1, 5]} color="#a5afa0" />
       <Box position={[0, 0.11, 0]} size={[5, 0.1, 23]} color="#a5afa0" />
     </group>

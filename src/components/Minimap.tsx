@@ -133,7 +133,7 @@ export function Minimap({
       {open && (
         <div className="nav-content" id="navigation-content">
           <p className="nav-assumption">
-            Perfect localisation · static map · no obstacle response
+            Perfect localisation · static map · sensor protection
           </p>
           <div className="nav-selection" aria-label="Map selection mode">
             <button

@@ -12,6 +12,8 @@ import { keyboardControls } from "./controls/keyboard";
 import { Scene } from "./rendering/Scene";
 import { Dashboard, cameraLabels } from "./components/Dashboard";
 import { Minimap } from "./components/Minimap";
+import { SensorExplorer } from "./components/SensorExplorer";
+import type { SensorSource } from "./sensors/types";
 
 class SceneBoundary extends Component<
   { children: ReactNode },
@@ -41,11 +43,20 @@ export default function App() {
   const [camera, setCamera] = useState<CameraMode>("follow");
   const [snapshot, setSnapshot] = useState(() => simulation.snapshot);
   const [navigation, setNavigation] = useState(() => simulation.navigation);
+  const [sensors, setSensors] = useState(() => simulation.sensors);
+  const [physical, setPhysical] = useState(() => simulation.physical);
+  const [safety, setSafety] = useState(() => simulation.safety);
+  const [sensorTab, setSensorTab] = useState<SensorSource | "compute">("lidar");
+  const [sensorOverlay, setSensorOverlay] = useState(false);
+  const [collisionOverlay, setCollisionOverlay] = useState(false);
   const [engineering, setEngineering] = useState(true);
   const keyboard = useRef<ReturnType<typeof keyboardControls> | null>(null);
   const refresh = () => {
     setSnapshot(simulation.snapshot);
     setNavigation(simulation.navigation);
+    setSensors(simulation.sensors);
+    setPhysical(simulation.physical);
+    setSafety(simulation.safety);
   };
   const reset = () => {
     keyboard.current?.clear();
@@ -58,12 +69,18 @@ export default function App() {
         simulation.reset();
         setSnapshot(simulation.snapshot);
         setNavigation(simulation.navigation);
+        setSensors(simulation.sensors);
+        setPhysical(simulation.physical);
+        setSafety(simulation.safety);
       },
       setCamera,
       () => {
         if (simulation.navigation.mode === "AUTONOMOUS") {
           simulation.cancelAutonomy();
           setNavigation(simulation.navigation);
+          setSensors(simulation.sensors);
+          setPhysical(simulation.physical);
+          setSafety(simulation.safety);
         }
       },
     );
@@ -80,6 +97,9 @@ export default function App() {
       if (now - lastDisplay >= 100) {
         setSnapshot(simulation.snapshot);
         setNavigation(simulation.navigation);
+        setSensors(simulation.sensors);
+        setPhysical(simulation.physical);
+        setSafety(simulation.safety);
         lastDisplay = now;
       }
       frame = requestAnimationFrame(tick);
@@ -91,6 +111,9 @@ export default function App() {
         simulation.pause();
         setSnapshot(simulation.snapshot);
         setNavigation(simulation.navigation);
+        setSensors(simulation.sensors);
+        setPhysical(simulation.physical);
+        setSafety(simulation.safety);
       }
     };
     document.addEventListener("visibilitychange", visibility);
@@ -112,7 +135,7 @@ export default function App() {
         </a>
         <div className="project-name">
           Autonomous Driving & Engineering Studio
-          <span>AUTONOMOUS NAVIGATION / v0.2A</span>
+          <span>COLLISION & SYNTHETIC PERCEPTION / v0.3</span>
         </div>
         <span className="mode-badge" data-mode={navigation.mode}>
           {navigation.mode}
@@ -126,8 +149,8 @@ export default function App() {
         <section className="workspace">
           <div className="workspace-title">
             <div>
-              <span className="eyebrow">EXPERIMENT 002</span>
-              <h1>Map-based autonomous navigation</h1>
+              <span className="eyebrow">EXPERIMENT 003</span>
+              <h1>Driving & perception laboratory</h1>
             </div>
             <span className="environment-label">
               VECTOR TOWN <span> / </span> DAYLIGHT
@@ -139,6 +162,9 @@ export default function App() {
                 simulation={simulation}
                 cameraMode={camera}
                 engineering={engineering}
+                sensorTab={sensorTab}
+                sensorOverlay={sensorOverlay}
+                collisionOverlay={collisionOverlay}
               />
             </SceneBoundary>
             <div className="viewport-label">
@@ -239,7 +265,15 @@ export default function App() {
               />{" "}
               Engineering overlay
             </label>
-            <span>Turquoise: planned · Amber: actual</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={collisionOverlay}
+                onChange={(e) => setCollisionOverlay(e.target.checked)}
+              />{" "}
+              Collision & road geometry
+            </label>
+            <span>Turquoise: planned · Amber: actual · Blue: measured</span>
           </div>
           <div className="keyboard-reference">
             <span className="eyebrow">MANUAL CONTROLS</span>
@@ -264,6 +298,46 @@ export default function App() {
               <kbd>R</kbd> Reset
             </span>
           </div>
+          <div
+            className="physical-strip"
+            aria-label="Physical and safety status"
+          >
+            <div>
+              <span>Road footprint</span>
+              <strong
+                className={physical.roadStatus === "ON_ROAD" ? "" : "warning"}
+              >
+                {physical.roadStatus.replaceAll("_", " ")}
+              </strong>
+            </div>
+            <div>
+              <span>Physical contacts / departures</span>
+              <strong>
+                {physical.collisionCount} / {physical.roadDepartureCount}
+              </strong>
+            </div>
+            <div>
+              <span>Sensor protection</span>
+              <strong className={safety.braking ? "warning" : ""}>
+                {safety.state.replaceAll("_", " ")}
+              </strong>
+            </div>
+          </div>
+          <SensorExplorer
+            simulation={simulation}
+            sensors={sensors}
+            safety={safety}
+            physical={physical}
+            navigation={navigation}
+            vehicle={snapshot.vehicle}
+            tab={sensorTab}
+            onTab={(tab) => {
+              setSensorTab(tab);
+              setSensorOverlay(false);
+            }}
+            overlay={sensorOverlay}
+            onOverlay={setSensorOverlay}
+          />
         </section>
         <div
           className="sidebar"
@@ -313,7 +387,7 @@ export default function App() {
           VECTOR <b> / </b> Build the world. Sense the road. Navigate
           autonomously.
         </span>
-        <span>EDUCATIONAL SIMULATION · v0.2A</span>
+        <span>EDUCATIONAL SIMULATION · v0.3</span>
       </footer>
     </div>
   );

@@ -4,7 +4,11 @@ import { clamp, VEHICLE } from "../simulation/vehicle";
 import { STEERING_RATE } from "../simulation/controller";
 import type { NavigationTelemetry } from "./types";
 import { projectOnPath, purePursuit } from "./purePursuit";
-import { speedControl, targetSpeed } from "./speedController";
+import {
+  speedControl,
+  targetSpeed,
+  trackingTargetSpeed,
+} from "./speedController";
 
 /** Map-based path following with perfect localisation; no dynamic-world observations. */
 export class NavigationController {
@@ -74,9 +78,14 @@ export class NavigationController {
     );
     const pursuit = purePursuit(this.route, vehicle, this.progress);
     const target = targetSpeed(this.route, this.progress);
+    const controllerTarget = trackingTargetSpeed(
+      target,
+      actualSteering,
+      pursuit.steering,
+    );
     this.data = {
       state: target.approachingTurn ? "APPROACHING_TURN" : "ROUTE_FOLLOWING",
-      targetSpeed: target.speed,
+      targetSpeed: controllerTarget,
       steeringCommand: pursuit.steering,
       remainingDistance: remaining,
       crossTrackError: projection.crossTrackError,
@@ -133,7 +142,7 @@ export class NavigationController {
           -STEERING_RATE * dt,
           STEERING_RATE * dt,
         ),
-      acceleration: speedControl(vehicle.velocity, target.speed, dt),
+      acceleration: speedControl(vehicle.velocity, controllerTarget, dt),
     };
   }
 }

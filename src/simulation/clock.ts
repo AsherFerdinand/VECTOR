@@ -1,11 +1,38 @@
 import type { DriverInput, SimulationSnapshot, VehicleState } from "./types";
 import { driverControl } from "./controller";
-import { INITIAL_STATE, integrateVehicle } from "./vehicle";
+import { INITIAL_STATE, integrateVehicle, VEHICLE } from "./vehicle";
 import { createRoadGraph, projectToRoad } from "../navigation/graph";
 import { planRoute, isRoadPosition } from "../navigation/route";
 import type { Point, RoadPosition, Route } from "../navigation/types";
 import { NavigationController } from "../autonomy/navigationController";
 import type { NavigationSnapshot, NavigationState } from "../autonomy/types";
+
+import { worldObjects } from "../world/objects";
+import type { WorldObject } from "../world/types";
+import {
+  vehicleFootprint,
+  polygonsOverlap,
+  resolveMotion,
+  classifyRoad,
+  validateRouteClearance,
+} from "./collision";
+import type {
+  PhysicalSnapshot,
+  CollisionEvent,
+  RoadDepartureEvent,
+  RoadStatus,
+  ClearanceResult,
+} from "./collisionTypes";
+import { SensorSuite, DEFAULT_SENSOR_CONFIGS } from "../sensors/suite";
+import type { SensorConfig, SensorSnapshot } from "../sensors/types";
+import { assessSafety, protectiveControl } from "../autonomy/safetySupervisor";
+import type { SafetySnapshot } from "../autonomy/safetyTypes";
+
+export interface SimulationOptions {
+  objects?: WorldObject[];
+  sensorConfigs?: SensorConfig[];
+  routeMargin?: number;
+}
 
 export const FIXED_DT = 0.01;
 export const MAX_FRAME_TIME = 0.1;
@@ -17,6 +44,20 @@ const angleDifference = (a: number, b: number) =>
 /** Fixed-step ground truth. Both driving modes use the same vehicle integrator. */
 export class Simulation {
   readonly graph = createRoadGraph();
+  readonly objects: WorldObject[];
+  readonly routeMargin: number;
+  private sensorSuite: SensorSuite;
+  private sensorData: SensorSnapshot;
+  private safetyData: SafetySnapshot;
+  private safetyLatch: SafetySnapshot | null = null;
+  private physicalStop = false;
+  private roadStatus: RoadStatus;
+  private collisionEvents: CollisionEvent[] = [];
+  private roadDepartures: RoadDepartureEvent[] = [];
+  private collisionCount = 0;
+  private roadDepartureCount = 0;
+  private contact: { id: string; x: number; y: number } | null = null;
+  private clearance: ClearanceResult | null = null;
   private state: VehicleState;
   private initial: VehicleState;
   private control = { steering: 0, acceleration: 0 };
@@ -34,9 +75,53 @@ export class Simulation {
   private message =
     "Select a destination on the map, or choose a new starting lane.";
 
-  constructor(initial: VehicleState = INITIAL_STATE) {
+  constructor(
+    initial: VehicleState = INITIAL_STATE,
+    options: SimulationOptions = {},
+  ) {
+    if (!Object.values(initial).every(Number.isFinite))
+      throw new RangeError("Vehicle state must be finite");
+    this.objects = options.objects ?? worldObjects();
+    this.routeMargin = options.routeMargin ?? 0.02;
+    if (!Number.isFinite(this.routeMargin) || this.routeMargin < 0)
+      throw new RangeError("Invalid route clearance margin");
+    if (
+      this.objects.some(
+        (o) =>
+          o.collidable && polygonsOverlap(vehicleFootprint(initial), o.polygon),
+      )
+    )
+      throw new RangeError(
+        "Initial vehicle footprint overlaps a solid obstacle",
+      );
     this.initial = { ...initial };
     this.state = { ...initial };
+    this.roadStatus = classifyRoad(this.state);
+    this.sensorSuite = new SensorSuite(
+      this.objects,
+      options.sensorConfigs ?? DEFAULT_SENSOR_CONFIGS,
+    );
+    this.sensorSuite.update(0, this.state);
+    this.sensorData = this.sensorSuite.snapshot;
+    this.safetyData = assessSafety(this.state, 0, this.sensorData, 0, false);
+  }
+
+  get sensors(): SensorSnapshot {
+    return this.sensorData;
+  }
+  get safety(): SafetySnapshot {
+    return { ...this.safetyData };
+  }
+  get physical(): PhysicalSnapshot {
+    return {
+      roadStatus: this.roadStatus,
+      collision: this.collisionEvents.at(-1) ?? null,
+      collisionCount: this.collisionCount,
+      roadDepartureCount: this.roadDepartureCount,
+      collisionEvents: this.collisionEvents,
+      roadDepartures: this.roadDepartures,
+      clearance: this.clearance,
+    };
   }
 
   get snapshot(): SimulationSnapshot {
@@ -59,11 +144,17 @@ export class Simulation {
       route: this.route,
       trajectory: this.trajectory,
       state:
-        this.mode === "AUTONOMOUS" && telemetry
-          ? telemetry.state
-          : this.idleState,
+        this.mode === "AUTONOMOUS" && (this.safetyLatch || this.physicalStop)
+          ? "SAFE_STOP"
+          : this.mode === "AUTONOMOUS" && telemetry
+            ? telemetry.state
+            : this.idleState,
       targetSpeed:
-        this.mode === "AUTONOMOUS" ? (telemetry?.targetSpeed ?? null) : null,
+        this.mode === "AUTONOMOUS"
+          ? this.safetyLatch || this.physicalStop
+            ? 0
+            : (telemetry?.targetSpeed ?? null)
+          : null,
       steeringCommand:
         this.mode === "AUTONOMOUS"
           ? (telemetry?.steeringCommand ?? null)
@@ -102,6 +193,23 @@ export class Simulation {
     }
     if (!isRoadPosition(this.graph, position)) {
       this.message = "Choose a valid directed lane for the start.";
+      return false;
+    }
+    const candidate = {
+      x: position.x,
+      y: position.y,
+      heading: position.heading,
+      velocity: 0,
+    };
+    if (
+      this.objects.some(
+        (o) =>
+          o.collidable &&
+          polygonsOverlap(vehicleFootprint(candidate), o.polygon),
+      )
+    ) {
+      this.message =
+        "Start rejected: vehicle footprint overlaps a solid object.";
       return false;
     }
     this.initial = {
@@ -145,13 +253,21 @@ export class Simulation {
       start && this.destination
         ? planRoute(this.graph, start, this.destination)
         : null;
+    this.clearance = this.route
+      ? validateRouteClearance(this.route, this.objects, this.routeMargin)
+      : null;
+    if (this.clearance && !this.clearance.valid) this.route = null;
     this.navigator = this.route ? new NavigationController(this.route) : null;
+    this.safetyLatch = null;
+    this.physicalStop = false;
     this.mode = "MANUAL";
     this.idleState = this.route ? "ROUTE_READY" : "ROUTE_UNAVAILABLE";
     this.trajectory = [];
     this.message = this.route
       ? "Route ready. Start autonomous drive when ready."
-      : "Route unavailable. Use a road-aligned start and a reachable destination at least 1 m away.";
+      : this.clearance && !this.clearance.valid
+        ? `Route rejected: ${this.clearance.reason} at ${this.clearance.distance?.toFixed(1) ?? "unknown"} m.`
+        : "Route unavailable. Use a road-aligned start and a reachable destination at least 1 m away.";
     return this.route !== null;
   }
 
@@ -167,14 +283,31 @@ export class Simulation {
     }
     if (!this.prepareRoute()) return false;
     this.mode = "AUTONOMOUS";
+    this.safetyData = assessSafety(
+      this.state,
+      this.control.steering,
+      this.sensorData,
+      this.ticks * FIXED_DT,
+      true,
+    );
+    this.safetyLatch = this.safetyData.braking ? this.safetyData : null;
     this.running = true;
     this.message =
-      "Map-based path following · perfect localisation. Driving keys take over immediately.";
+      "Map-based path following · perfect localisation · sensor-based protective braking. Driving keys take over immediately.";
     return true;
   }
 
   cancelAutonomy(): void {
     this.mode = "MANUAL";
+    this.safetyLatch = null;
+    this.physicalStop = false;
+    this.safetyData = assessSafety(
+      this.state,
+      this.control.steering,
+      this.sensorData,
+      this.ticks * FIXED_DT,
+      false,
+    );
     this.idleState = this.route ? "ROUTE_READY" : "IDLE";
     this.message =
       "Manual control. Vehicle motion is preserved; brake to stop.";
@@ -183,6 +316,7 @@ export class Simulation {
   clearRoute(): void {
     this.cancelAutonomy();
     this.route = null;
+    this.clearance = null;
     this.destination = null;
     this.navigator = null;
     this.idleState = "IDLE";
@@ -199,6 +333,19 @@ export class Simulation {
     this.running = false;
     this.distance = 0;
     this.droppedTime = 0;
+    this.collisionEvents = [];
+    this.roadDepartures = [];
+    this.collisionCount = 0;
+    this.roadDepartureCount = 0;
+    this.contact = null;
+    this.roadStatus = classifyRoad(this.state);
+    this.sensorSuite.reset();
+    this.sensorSuite.update(0, this.state);
+    this.sensorData = this.sensorSuite.snapshot;
+    this.safetyLatch = null;
+    this.physicalStop = false;
+    this.safetyData = assessSafety(this.state, 0, this.sensorData, 0, false);
+    this.clearance = null;
     this.mode = "MANUAL";
     this.trajectory = [];
     if (this.destination) this.prepareRoute();
@@ -215,7 +362,7 @@ export class Simulation {
   step(input: DriverInput): void {
     if (this.mode === "AUTONOMOUS" && activeInput(input)) this.cancelAutonomy();
     if (!this.running) return;
-    const requested =
+    let requested =
       this.mode === "AUTONOMOUS" && this.navigator
         ? this.navigator.update(this.state, this.control.steering, FIXED_DT)
         : driverControl(
@@ -224,14 +371,120 @@ export class Simulation {
             this.control.steering,
             FIXED_DT,
           );
+    const autonomous = this.mode === "AUTONOMOUS";
+    const assessment = assessSafety(
+      this.state,
+      requested.steering,
+      this.sensorData,
+      this.ticks * FIXED_DT,
+      autonomous,
+    );
+    if (autonomous && assessment.braking && !this.safetyLatch)
+      this.safetyLatch = { ...assessment };
+    this.safetyData =
+      autonomous && this.safetyLatch
+        ? {
+            ...this.safetyLatch,
+            reason:
+              this.safetyLatch.reason +
+              " Stop held until manual takeover, reset, or explicit reactivation.",
+          }
+        : assessment;
+    requested = protectiveControl(
+      requested,
+      this.safetyData,
+      this.state,
+      FIXED_DT,
+    );
+    if (autonomous && this.physicalStop)
+      requested = {
+        steering: this.control.steering,
+        acceleration:
+          -Math.sign(this.state.velocity) *
+          Math.min(
+            VEHICLE.maxBraking,
+            Math.abs(this.state.velocity) / FIXED_DT,
+          ),
+      };
     const previous = this.state;
-    this.state = integrateVehicle(previous, requested, FIXED_DT);
-    this.distance += previous.velocity * FIXED_DT;
+    const proposed = integrateVehicle(previous, requested, FIXED_DT);
+    let motion = resolveMotion(previous, proposed, this.objects);
+    // Explicit Euler first changes velocity at rest. While already in contact,
+    // inhibit an inward launch so held throttle cannot alternate between rest
+    // and a small velocity. A separating reverse launch remains available.
+    if (
+      this.contact &&
+      Math.abs(previous.velocity) < 1e-12 &&
+      proposed.velocity !== 0 &&
+      !motion.collided
+    ) {
+      const probe = {
+        ...proposed,
+        x:
+          proposed.x +
+          proposed.velocity * Math.cos(proposed.heading) * FIXED_DT,
+        y:
+          proposed.y +
+          proposed.velocity * Math.sin(proposed.heading) * FIXED_DT,
+      };
+      const launch = resolveMotion(proposed, probe, this.objects);
+      if (launch.collided)
+        motion = {
+          ...motion,
+          state: { ...motion.state, velocity: 0 },
+          collided: true,
+          objectId: launch.objectId,
+        };
+    }
+    this.state = motion.state;
+    this.distance += previous.velocity * FIXED_DT * motion.fraction;
     this.control = {
       steering: requested.steering,
       acceleration: (this.state.velocity - previous.velocity) / FIXED_DT,
     };
     this.ticks += 1;
+    const now = this.ticks * FIXED_DT;
+    if (motion.collided && motion.objectId) {
+      if (!this.contact || this.contact.id !== motion.objectId) {
+        const event = {
+          time: now,
+          objectId: motion.objectId,
+          position: { x: this.state.x, y: this.state.y },
+        };
+        this.collisionEvents = [...this.collisionEvents.slice(-63), event];
+        this.collisionCount += 1;
+        this.contact = {
+          id: motion.objectId,
+          x: this.state.x,
+          y: this.state.y,
+        };
+      }
+      if (autonomous) this.physicalStop = true;
+    } else if (
+      this.contact &&
+      Math.hypot(this.state.x - this.contact.x, this.state.y - this.contact.y) >
+        0.05
+    )
+      this.contact = null;
+    const road = classifyRoad(this.state);
+    if (road !== this.roadStatus && road !== "ON_ROAD") {
+      this.roadDepartureCount += 1;
+      this.roadDepartures = [
+        ...this.roadDepartures.slice(-63),
+        {
+          time: now,
+          status: road,
+          position: { x: this.state.x, y: this.state.y },
+        },
+      ];
+    }
+    this.roadStatus = road;
+    this.sensorSuite.update(
+      now,
+      this.state,
+      (this.state.heading - previous.heading) / FIXED_DT,
+    );
+    this.sensorData = this.sensorSuite.snapshot;
     const last = this.trajectory.at(-1);
     if (
       this.route &&
@@ -248,7 +501,11 @@ export class Simulation {
         this.message = "Destination reached. Vehicle stopped.";
       if (status === "SAFE_STOP")
         this.message =
-          "Tracking tolerance exceeded. Braking to a safe stop; reset or take manual control.";
+          "Tracking tolerance exceeded. Braking; reset or take manual control.";
+      if (this.safetyLatch) this.message = this.safetyData.reason;
+      if (this.physicalStop)
+        this.message =
+          "Physical contact inhibited autonomous motion. This is a collision-engine stop, not a perception decision. Take manual control or reset.";
     }
   }
 
