@@ -1116,3 +1116,122 @@ main {
     min-width: 0;
   }
 }
+
+.scenario-selector {
+  border: 1px solid #34574e;
+  background: #14251f;
+  padding: 14px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+.scenario-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.scenario-heading h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.scenario-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
+  margin-top: 12px;
+}
+.scenario-fields label {
+  display: grid;
+  gap: 7px;
+  font-size: 10px;
+  color: #a1bfb2;
+  position: relative;
+}
+.scenario-fields select,
+.scenario-fields input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid #426759;
+  background: #172e25;
+  border-radius: 4px;
+  color: #d4e8dc;
+  padding: 9px;
+  font: inherit;
+  font-size: 12px;
+}
+.scenario-unit {
+  position: absolute;
+  right: 8px;
+  top: 0;
+}
+.scenario-description {
+  font-size: 10px;
+  color: #a9c5b8;
+  margin: 10px 0 6px;
+  line-height: 1.6;
+}
+.scenario-reset-note {
+  color: #7e9e8e;
+  font-size: 9px;
+  margin: 0;
+  line-height: 1.5;
+}
+.behaviour-inspector {
+  padding: 15px;
+  margin-bottom: 18px;
+  background: #18342d;
+  border: 1px solid #416c5c;
+  border-radius: 5px;
+}
+.behaviour-inspector.is-aeb {
+  border-color: #d98678;
+  background: #3a2425;
+}
+.behaviour-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+}
+.behaviour-heading strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: #bde8d2;
+}
+.is-aeb .behaviour-heading strong {
+  color: #ffc2af;
+}
+.behaviour-reason {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #b3cabe;
+  margin: 12px 0;
+}
+.observed-signal {
+  font-size: 9px;
+  margin-left: 5px;
+  font-weight: 500;
+}
+.signal-red {
+  color: #ffac9b;
+}
+.signal-yellow {
+  color: #f0da8d;
+}
+.signal-green {
+  color: #9de5bd;
+}
+@media (max-width: 760px) {
+  .scenario-fields {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+  .scenario-heading .eyebrow {
+    display: none;
+  }
+  .scenario-selector {
+    padding: 12px;
+  }
+  .behaviour-heading {
+    flex-wrap: wrap;
+  }
+}

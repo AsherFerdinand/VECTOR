@@ -1,5 +1,7 @@
 # Navigation model — v0.2A
 
+> Historical baseline. Current road-containment, dynamic-traffic and behaviour changes are documented in [Traffic and autonomy](traffic-autonomy.md).
+
 VECTOR v0.2A implements **map-based autonomous path following with perfect localisation**. The controller knows the static map, selected route, destination, and exact vehicle pose. It has no simulated sensors, dynamic-object observations, future-event knowledge, traffic-light response, or collision avoidance.
 
 The unchanged rear-axle bicycle dynamics, units, and numerical integration are documented in [Engineering model — v0.1](engineering-model.md). This document describes the additional navigation layer and the reset behavior introduced in v0.2A.

@@ -73,7 +73,43 @@ export function SensorCamera({
         child.userData.sensorDebug || child.userData.sensorCameraHidden,
     );
     const visibility = debugGroups.map((group) => group.visible);
+    // These render-only ground-truth tags never enter sensor observations or
+    // planning. Rewind dynamic visuals to the measurement acquisition time.
+    const acquisitionTraffic = simulation.cameraTraffic;
+    const actorGroups =
+      scene.children
+        .find((child) => child.userData.trafficScene)
+        ?.children.filter((child) => child.userData.trafficActorId) ?? [];
+    const signalGroups =
+      scene.children
+        .find((child) => child.userData.trafficSignals)
+        ?.children.filter((child) => child.userData.signalId) ?? [];
+    const actorTransforms = actorGroups.map((object) => ({
+      object,
+      position: object.position.clone(),
+      quaternion: object.quaternion.clone(),
+      visible: object.visible,
+    }));
+    const currentSignals = simulation.traffic.signals;
     try {
+      if (acquisitionTraffic) {
+        for (const object of actorGroups) {
+          const actor = acquisitionTraffic.actors.find(
+            (item) => item.id === object.userData.trafficActorId,
+          );
+          object.visible = actor !== undefined;
+          if (actor) {
+            object.position.set(actor.state.x, 0, -actor.state.y);
+            object.rotation.y = actor.state.heading;
+          }
+        }
+        for (const object of signalGroups) {
+          const signal = acquisitionTraffic.signals.find(
+            (item) => item.id === object.userData.signalId,
+          );
+          object.userData.applySignalColor?.(signal?.color);
+        }
+      }
       for (const group of debugGroups) group.visible = false;
       gl.xr.enabled = false;
       gl.autoClear = true;
@@ -103,6 +139,18 @@ export function SensorCamera({
       context.putImageData(image, 0, 0);
       sampledFrame.current = frame;
     } finally {
+      for (const saved of actorTransforms) {
+        saved.object.position.copy(saved.position);
+        saved.object.quaternion.copy(saved.quaternion);
+        saved.object.visible = saved.visible;
+      }
+      if (acquisitionTraffic)
+        for (const object of signalGroups) {
+          const signal = currentSignals.find(
+            (item) => item.id === object.userData.signalId,
+          );
+          object.userData.applySignalColor?.(signal?.color);
+        }
       debugGroups.forEach((group, index) => {
         group.visible = visibility[index];
       });

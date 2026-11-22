@@ -41,6 +41,11 @@ export interface Detection {
   range: number;
   bearing: number;
   radialVelocity?: number;
+  signal?: {
+    color: import("../world/trafficTypes").SignalColor;
+    heading: number;
+    stopLine: [Point, Point];
+  };
 }
 export interface DetectionFrame {
   sensorId: string;

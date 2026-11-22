@@ -98,8 +98,8 @@ export function purePursuit(
   route: Route,
   vehicle: VehicleState,
   progress: number,
+  requestedLookAhead = 2.5 + 0.35 * Math.max(0, vehicle.velocity),
 ): PursuitResult {
-  const requestedLookAhead = 2.5 + 0.35 * Math.max(0, vehicle.velocity);
   const target = pointAtDistance(route.points, progress + requestedLookAhead);
   const dx = target.x - vehicle.x,
     dy = target.y - vehicle.y;

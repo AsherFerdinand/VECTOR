@@ -1,5 +1,7 @@
 # Collision engineering and virtual perception — v0.2B + v0.3
 
+> Historical baseline. Current road-containment, dynamic-traffic and behaviour changes are documented in [Traffic and autonomy](traffic-autonomy.md).
+
 This milestone adds physical static-obstacle constraints and simplified sensor observations to VECTOR's existing navigation baseline. The [vehicle model](engineering-model.md) and [v0.2A navigation model](navigation-model.md) remain useful references. Their milestone-specific limitations and measurements describe the earlier collision-free, sensor-free baseline; this document describes the added behavior.
 
 ## Information boundaries

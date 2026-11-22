@@ -7,6 +7,8 @@ import {
   type ErrorInfo,
 } from "react";
 import { Simulation } from "./simulation/clock";
+import { INITIAL_STATE } from "./simulation/vehicle";
+import { ScenarioSelector } from "./components/ScenarioSelector";
 import type { CameraMode } from "./simulation/types";
 import { keyboardControls } from "./controls/keyboard";
 import { Scene } from "./rendering/Scene";
@@ -39,7 +41,9 @@ class SceneBoundary extends Component<
 }
 
 export default function App() {
-  const [simulation] = useState(() => new Simulation());
+  const [simulation] = useState(
+    () => new Simulation(INITIAL_STATE, { scenario: "normal" }),
+  );
   const [camera, setCamera] = useState<CameraMode>("follow");
   const [snapshot, setSnapshot] = useState(() => simulation.snapshot);
   const [navigation, setNavigation] = useState(() => simulation.navigation);
@@ -49,6 +53,9 @@ export default function App() {
   const [sensorTab, setSensorTab] = useState<SensorSource | "compute">("lidar");
   const [sensorOverlay, setSensorOverlay] = useState(false);
   const [collisionOverlay, setCollisionOverlay] = useState(false);
+  const [traffic, setTraffic] = useState(() => simulation.traffic);
+  const [behaviour, setBehaviour] = useState(() => simulation.behaviour);
+  const [timeGap, setTimeGap] = useState(() => simulation.timeGap);
   const [engineering, setEngineering] = useState(true);
   const keyboard = useRef<ReturnType<typeof keyboardControls> | null>(null);
   const refresh = () => {
@@ -57,6 +64,8 @@ export default function App() {
     setSensors(simulation.sensors);
     setPhysical(simulation.physical);
     setSafety(simulation.safety);
+    setTraffic(simulation.traffic);
+    setBehaviour(simulation.behaviour);
   };
   const reset = () => {
     keyboard.current?.clear();
@@ -72,6 +81,8 @@ export default function App() {
         setSensors(simulation.sensors);
         setPhysical(simulation.physical);
         setSafety(simulation.safety);
+        setTraffic(simulation.traffic);
+        setBehaviour(simulation.behaviour);
       },
       setCamera,
       () => {
@@ -81,6 +92,8 @@ export default function App() {
           setSensors(simulation.sensors);
           setPhysical(simulation.physical);
           setSafety(simulation.safety);
+          setTraffic(simulation.traffic);
+          setBehaviour(simulation.behaviour);
         }
       },
     );
@@ -100,6 +113,8 @@ export default function App() {
         setSensors(simulation.sensors);
         setPhysical(simulation.physical);
         setSafety(simulation.safety);
+        setTraffic(simulation.traffic);
+        setBehaviour(simulation.behaviour);
         lastDisplay = now;
       }
       frame = requestAnimationFrame(tick);
@@ -114,6 +129,8 @@ export default function App() {
         setSensors(simulation.sensors);
         setPhysical(simulation.physical);
         setSafety(simulation.safety);
+        setTraffic(simulation.traffic);
+        setBehaviour(simulation.behaviour);
       }
     };
     document.addEventListener("visibilitychange", visibility);
@@ -135,7 +152,7 @@ export default function App() {
         </a>
         <div className="project-name">
           Autonomous Driving & Engineering Studio
-          <span>COLLISION & SYNTHETIC PERCEPTION / v0.3</span>
+          <span>TRAFFIC & AUTONOMOUS BEHAVIOUR / v0.5</span>
         </div>
         <span className="mode-badge" data-mode={navigation.mode}>
           {navigation.mode}
@@ -149,13 +166,27 @@ export default function App() {
         <section className="workspace">
           <div className="workspace-title">
             <div>
-              <span className="eyebrow">EXPERIMENT 003</span>
-              <h1>Driving & perception laboratory</h1>
+              <span className="eyebrow">EXPERIMENT 005</span>
+              <h1>Traffic & autonomy laboratory</h1>
             </div>
             <span className="environment-label">
               VECTOR TOWN <span> / </span> DAYLIGHT
             </span>
           </div>
+          <ScenarioSelector
+            scenario={traffic.scenario}
+            timeGap={timeGap}
+            onSelect={(id) => {
+              keyboard.current?.clear();
+              simulation.selectScenario(id);
+              refresh();
+            }}
+            onTimeGap={(gap) => {
+              simulation.setTimeGap(gap);
+              setTimeGap(gap);
+              refresh();
+            }}
+          />
           <div className="viewport">
             <SceneBoundary>
               <Scene
@@ -228,8 +259,8 @@ export default function App() {
             aria-label="Live navigation summary"
           >
             <div>
-              <span>Navigation state</span>
-              <strong>{navigation.state.replaceAll("_", " ")}</strong>
+              <span>Driving state</span>
+              <strong>{behaviour.state.replaceAll("_", " ")}</strong>
             </div>
             <div>
               <span>Target speed</span>
@@ -317,14 +348,16 @@ export default function App() {
               </strong>
             </div>
             <div>
-              <span>Sensor protection</span>
+              <span>Swept containment / sensor protection</span>
               <strong className={safety.braking ? "warning" : ""}>
+                {physical.sweptRoadStatus.replaceAll("_", " ")} /{" "}
                 {safety.state.replaceAll("_", " ")}
               </strong>
             </div>
           </div>
           <SensorExplorer
             simulation={simulation}
+            behaviour={behaviour}
             sensors={sensors}
             safety={safety}
             physical={physical}
@@ -347,6 +380,7 @@ export default function App() {
           }}
         >
           <Minimap
+            key={traffic.scenario ?? "custom"}
             graph={simulation.graph}
             navigation={navigation}
             vehicle={snapshot.vehicle}
@@ -387,7 +421,7 @@ export default function App() {
           VECTOR <b> / </b> Build the world. Sense the road. Navigate
           autonomously.
         </span>
-        <span>EDUCATIONAL SIMULATION · v0.3</span>
+        <span>EDUCATIONAL SIMULATION · v0.5</span>
       </footer>
     </div>
   );

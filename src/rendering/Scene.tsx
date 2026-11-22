@@ -3,6 +3,7 @@ import type { Simulation } from "../simulation/clock";
 import type { CameraMode } from "../simulation/types";
 import { Cameras } from "./Cameras";
 import { Town } from "./Town";
+import { Traffic } from "./Traffic";
 import { Vehicle } from "./Vehicle";
 import { RouteOverlay } from "./RouteOverlay";
 import { SensorOverlays } from "./SensorOverlays";
@@ -35,7 +36,8 @@ export function Scene({
       <fog attach="fog" args={["#9db5b6", 120, 330]} />
       <ambientLight intensity={1.5} />
       <directionalLight position={[35, 70, 20]} intensity={2.1} />
-      <Town />
+      <Town simulation={simulation} />
+      <Traffic simulation={simulation} />
       <group userData={{ sensorDebug: true }}>
         <RouteOverlay simulation={simulation} engineering={engineering} />
       </group>

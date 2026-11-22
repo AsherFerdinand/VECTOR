@@ -10,11 +10,23 @@ export const TREE_TRUNK_HEIGHT = 2.4;
 /** Ground-level solid footprints share positions with the visual scene. */
 export const trafficLightPlacements = town.intersections.flatMap(
   ([x, y], junction) => [
-    { id: `traffic-light-${junction}-a`, x: x - 5.6, y: y - 5.6, angle: 0 },
+    {
+      id: `traffic-light-${junction}-a`,
+      x: x - 5.6,
+      y: y - 5.6,
+      angle: -Math.PI / 2,
+    },
     {
       id: `traffic-light-${junction}-b`,
       x: x + 5.6,
       y: y + 5.6,
+      angle: Math.PI / 2,
+    },
+    { id: `traffic-light-${junction}-c`, x: x - 5.6, y: y + 5.6, angle: 0 },
+    {
+      id: `traffic-light-${junction}-d`,
+      x: x + 5.6,
+      y: y - 5.6,
       angle: Math.PI,
     },
   ],

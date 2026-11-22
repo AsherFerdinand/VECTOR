@@ -6,6 +6,7 @@ import type {
   DetectionFrame,
 } from "../sensors/types";
 import type { SafetySnapshot } from "../autonomy/safetyTypes";
+import type { BehaviourSnapshot } from "../autonomy/behaviourTypes";
 import type { PhysicalSnapshot } from "../simulation/collisionTypes";
 import type { NavigationSnapshot } from "../autonomy/types";
 import type { VehicleState } from "../simulation/types";
@@ -22,6 +23,7 @@ interface SensorExplorerProps {
   onTab: (tab: ExplorerTab) => void;
   overlay: boolean;
   onOverlay: (enabled: boolean) => void;
+  behaviour?: BehaviourSnapshot;
 }
 const degrees = (angle: number) => (angle * 180) / Math.PI;
 const time = (value: number | undefined) =>
@@ -70,7 +72,15 @@ function DetectionList({
               <td>
                 {d.source} / {time(d.timestamp)}
               </td>
-              <td>{d.objectClass ?? "Unclassified"}</td>
+              <td>
+                {d.objectClass ?? "Unclassified"}
+                {d.signal && (
+                  <span className={`observed-signal signal-${d.signal.color}`}>
+                    {" "}
+                    · {d.signal.color.toUpperCase()}
+                  </span>
+                )}
+              </td>
               <td>{d.range.toFixed(1)} m</td>
               <td>{degrees(d.bearing).toFixed(1)}°</td>
               {radar && (
@@ -176,6 +186,7 @@ export function SensorExplorer({
   onTab,
   overlay,
   onOverlay,
+  behaviour,
 }: SensorExplorerProps) {
   const config = sensors.configs.find((c) => c.source === tab);
   const scan = sensors.lidar;
@@ -198,7 +209,7 @@ export function SensorExplorer({
     <section className="sensor-explorer" aria-label="Sensor Explorer">
       <div className="sensor-heading">
         <div>
-          <span className="eyebrow">SYNTHETIC PERCEPTION / v0.3</span>
+          <span className="eyebrow">OBSERVATIONS & DRIVING BEHAVIOUR</span>
           <h2>Sensor Explorer</h2>
         </div>
         <span className="sensor-badge">Geometric models</span>
@@ -464,17 +475,18 @@ export function SensorExplorer({
                 <div>
                   <dt>Target speed</dt>
                   <dd>
-                    {navigation.targetSpeed === null
+                    {(behaviour?.targetSpeed ?? navigation.targetSpeed) === null
                       ? "—"
-                      : `${(navigation.targetSpeed * 3.6).toFixed(1)} km/h`}
+                      : `${((behaviour?.targetSpeed ?? navigation.targetSpeed ?? 0) * 3.6).toFixed(1)} km/h`}
                   </dd>
                 </div>
                 <div>
                   <dt>Steering command</dt>
                   <dd>
-                    {navigation.steeringCommand === null
+                    {(behaviour?.steering ?? navigation.steeringCommand) ===
+                    null
                       ? "—"
-                      : `${degrees(navigation.steeringCommand).toFixed(1)}°`}
+                      : `${degrees(behaviour?.steering ?? navigation.steeringCommand ?? 0).toFixed(1)}°`}
                   </dd>
                 </div>
                 <div>
@@ -511,6 +523,14 @@ export function SensorExplorer({
                   <dd>{physical.roadStatus}</dd>
                 </div>
                 <div>
+                  <dt>Swept-road status</dt>
+                  <dd>{physical.sweptRoadStatus}</dd>
+                </div>
+                <div>
+                  <dt>Containment interlock</dt>
+                  <dd>{physical.containmentStop ? "ACTIVE" : "Inactive"}</dd>
+                </div>
+                <div>
                   <dt>Collisions / departures</dt>
                   <dd>
                     {physical.collisionCount} / {physical.roadDepartureCount}
@@ -518,6 +538,81 @@ export function SensorExplorer({
                 </div>
               </dl>
             </div>
+            {behaviour && (
+              <section
+                className={`behaviour-inspector ${behaviour.aeb ? "is-aeb" : ""}`}
+                aria-label="Driving decision inspector"
+              >
+                <div className="behaviour-heading">
+                  <span className="eyebrow">DECISION INSPECTOR</span>
+                  <strong>{behaviour.state}</strong>
+                  <span>{behaviour.aeb ? "AEB ACTIVE" : "AEB inactive"}</span>
+                </div>
+                <p className="behaviour-reason">{behaviour.reason}</p>
+                <div className="sensor-compute-grid">
+                  <dl className="sensor-metrics">
+                    <div>
+                      <dt>Measured lead gap</dt>
+                      <dd>{number(behaviour.leadDistance)} m</dd>
+                    </div>
+                    <div>
+                      <dt>Relative speed</dt>
+                      <dd>{number(behaviour.relativeSpeed)} m/s</dd>
+                    </div>
+                    <div>
+                      <dt>Desired gap</dt>
+                      <dd>{behaviour.desiredGap.toFixed(2)} m</dd>
+                    </div>
+                    <div>
+                      <dt>Time gap setting</dt>
+                      <dd>{behaviour.timeGap.toFixed(2)} s</dd>
+                    </div>
+                    <div>
+                      <dt>Time to collision</dt>
+                      <dd>
+                        {behaviour.ttc === null
+                          ? "—"
+                          : Number.isFinite(behaviour.ttc)
+                            ? `${behaviour.ttc.toFixed(2)} s`
+                            : "∞"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <dl className="sensor-metrics">
+                    <div>
+                      <dt>Behaviour stopping distance</dt>
+                      <dd>{behaviour.stoppingDistance.toFixed(2)} m</dd>
+                    </div>
+                    <div>
+                      <dt>Acceleration command</dt>
+                      <dd>{behaviour.acceleration.toFixed(2)} m/s²</dd>
+                    </div>
+                    <div>
+                      <dt>Braking command</dt>
+                      <dd>{behaviour.braking.toFixed(2)} m/s²</dd>
+                    </div>
+                    <div>
+                      <dt>Applied steering</dt>
+                      <dd>
+                        {degrees(simulation.snapshot.control.steering).toFixed(
+                          1,
+                        )}
+                        °
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Decision measurement</dt>
+                      <dd>{time(behaviour.observationTime ?? undefined)}</dd>
+                    </div>
+                  </dl>
+                </div>
+                <p className="sensor-model-note">
+                  Decision values come from the active behaviour controller and
+                  permitted observations. Physical containment and collision
+                  status below are simulator ground truth.
+                </p>
+              </section>
+            )}
             <p
               className={`sensor-safety-reason ${safety.braking ? "is-braking" : ""}`}
             >

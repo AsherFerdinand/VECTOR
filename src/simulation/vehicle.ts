@@ -48,16 +48,18 @@ export function integrateVehicle(
           -VEHICLE.maxBraking,
           VEHICLE.maxAcceleration,
         );
+  const velocity = clamp(
+    state.velocity + acceleration * dt,
+    -VEHICLE.reverseSpeed,
+    VEHICLE.maxSpeed,
+  );
   return {
     x: state.x + state.velocity * Math.cos(state.heading) * dt,
     y: state.y + state.velocity * Math.sin(state.heading) * dt,
     heading:
       state.heading +
       (state.velocity / VEHICLE.wheelbase) * Math.tan(steering) * dt,
-    velocity: clamp(
-      state.velocity + acceleration * dt,
-      -VEHICLE.reverseSpeed,
-      VEHICLE.maxSpeed,
-    ),
+    // Remove only floating-point residue at rest; do not snap meaningful motion.
+    velocity: Math.abs(velocity) < 1e-12 ? 0 : velocity,
   };
 }

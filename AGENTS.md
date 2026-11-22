@@ -1,6 +1,6 @@
 # VECTOR development instructions
 
-VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone combines v0.2B collision engineering and v0.3 virtual perception.
+VECTOR is a lightweight autonomous-driving engineering laboratory. The current milestone combines v0.3.1 swept-body containment, v0.4 deterministic traffic, and v0.5 observation-based driving behaviour.
 
 ## Architecture
 
@@ -13,6 +13,9 @@ VECTOR is a lightweight autonomous-driving engineering laboratory. The current m
 - Keep ground-truth objects, raw measurements, and processed detections distinct. Debug object IDs are not inferred perception.
 - Label perfect localisation and simplified geometric sensors explicitly; do not imply learned perception or production AEB.
 - Schedule sensors from simulation time with deterministic seeded noise; rendering FPS must not drive measurements.
+- Keep actor scripts and signal phases on simulation time; reset must reproduce the scenario.
+- Behaviour may use observed camera signal semantics and measured range/range-rate, never actor ground truth or future scripts.
+- Validate actual swept body containment; do not mask tracking errors with position corrections.
 - Keep obstacle placement shared between rendering, collision, and sensor geometry. Manual control must not be silently overridden by autonomous safety.
 - Prefer simple, readable TypeScript and necessary dependencies only.
 - Preserve the distinction between simulator ground truth and future vehicle observations.

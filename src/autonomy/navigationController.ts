@@ -76,7 +76,14 @@ export class NavigationController {
       vehicle.x - endpoint.x,
       vehicle.y - endpoint.y,
     );
-    const pursuit = purePursuit(this.route, vehicle, this.progress);
+    // A rear-axle pursuit target close to the tight urban reference avoids
+    // cutting the inner curb with the front body during intersection turns.
+    const pursuit = purePursuit(
+      this.route,
+      vehicle,
+      this.progress,
+      1.2 + 0.15 * Math.max(0, vehicle.velocity),
+    );
     const target = targetSpeed(this.route, this.progress);
     const controllerTarget = trackingTargetSpeed(
       target,

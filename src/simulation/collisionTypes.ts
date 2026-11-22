@@ -17,6 +17,8 @@ export interface RoadDepartureEvent {
 }
 export interface PhysicalSnapshot {
   roadStatus: RoadStatus;
+  sweptRoadStatus: RoadStatus;
+  containmentStop: boolean;
   collision: CollisionEvent | null;
   collisionCount: number;
   roadDepartureCount: number;

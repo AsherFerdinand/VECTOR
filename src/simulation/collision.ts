@@ -267,6 +267,7 @@ export function validateRouteClearance(
   route: Route,
   objects: WorldObject[],
   margin = 0.02,
+  checkRoad = true,
 ): ClearanceResult {
   if (!Number.isFinite(margin) || margin < 0)
     throw new RangeError("Route margin must be finite and nonnegative");
@@ -316,7 +317,7 @@ export function validateRouteClearance(
           ? 0
           : route.points[i - 1].s +
             ((route.points[i].s - route.points[i - 1].s) * j) / count;
-      if (classifyFootprint(footprint) !== "ON_ROAD")
+      if (checkRoad && classifyFootprint(footprint) !== "ON_ROAD")
         return {
           valid: false,
           reason: "Vehicle footprint or safety margin leaves drivable road",
@@ -338,4 +339,27 @@ export function validateRouteClearance(
     reason: "Nominal swept vehicle footprint clears roads and static obstacles",
     distance: null,
   };
+}
+
+/** Conservative swept road coverage. Half-interval inflation bounds every body
+ * point between samples, including rotation; this is not a position correction. */
+export function classifyRoadMotion(
+  previous: VehicleState,
+  proposed: VehicleState,
+): RoadStatus {
+  const boundaryTravel =
+    Math.hypot(proposed.x - previous.x, proposed.y - previous.y) +
+    Math.abs(proposed.heading - previous.heading) * bodyRadius;
+  if (boundaryTravel < 1e-12) return classifyRoad(proposed);
+  const count = Math.max(1, Math.ceil(boundaryTravel / 0.01));
+  const margin = boundaryTravel / count / 2;
+  let status: RoadStatus = "ON_ROAD";
+  for (let i = 0; i <= count; i++) {
+    const sample = classifyFootprint(
+      vehicleFootprint(interpolate(previous, proposed, i / count), margin),
+    );
+    if (sample === "FULLY_OFF_ROAD") return sample;
+    if (sample === "PARTIALLY_OFF_ROAD") status = sample;
+  }
+  return status;
 }
