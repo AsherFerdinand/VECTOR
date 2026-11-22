@@ -35,8 +35,14 @@ import { BehaviourPlanner } from "../autonomy/behaviourPlanner";
 import type { BehaviourSnapshot } from "../autonomy/behaviourTypes";
 import { planClearedRoute } from "../navigation/clearedRoute";
 
+import { MultiObjectTracker } from "../perception/tracker";
+import type { TrackingSnapshot } from "../perception/types";
+
 export interface SimulationOptions {
+  sensorDropout?: { start: number; end: number };
+  fusedControl?: boolean;
   scenario?: ScenarioId;
+  trafficVariant?: import("../world/trafficTypes").TrafficVariant;
   timeGap?: number;
   objects?: WorldObject[];
   sensorConfigs?: SensorConfig[];
@@ -57,12 +63,17 @@ export class Simulation {
   readonly routeMargin: number;
   private staticObjects: WorldObject[];
   private trafficWorld: TrafficWorld;
+  private trafficVariant?: import("../world/trafficTypes").TrafficVariant;
   private trafficData: TrafficSnapshot;
   private cameraTrafficData: TrafficSnapshot;
   private planner: BehaviourPlanner;
   private timeGapValue = 1.5;
   private sweptRoadStatus: RoadStatus;
   private containmentStop = false;
+  private tracker = new MultiObjectTracker();
+  private trackingData!: TrackingSnapshot;
+  private sensorDropout?: { start: number; end: number };
+  private fusedControl: boolean;
   private sensorSuite: SensorSuite;
   private sensorData: SensorSnapshot;
   private safetyData: SafetySnapshot;
@@ -98,9 +109,23 @@ export class Simulation {
   ) {
     if (!Object.values(initial).every(Number.isFinite))
       throw new RangeError("Vehicle state must be finite");
+    this.sensorDropout = options.sensorDropout;
+    this.fusedControl = options.fusedControl ?? false;
+    if (
+      this.sensorDropout &&
+      (!Number.isFinite(this.sensorDropout.start) ||
+        !Number.isFinite(this.sensorDropout.end) ||
+        this.sensorDropout.start < 0 ||
+        this.sensorDropout.end <= this.sensorDropout.start)
+    )
+      throw new RangeError("Invalid dropout interval");
     this.staticObjects = options.objects ?? worldObjects();
     this.objects = [...this.staticObjects];
-    this.trafficWorld = new TrafficWorld(options.scenario ?? null);
+    this.trafficVariant = options.trafficVariant;
+    this.trafficWorld = new TrafficWorld(
+      options.scenario ?? null,
+      options.trafficVariant,
+    );
     this.trafficData = this.trafficWorld.snapshot;
     this.cameraTrafficData = this.trafficData;
     this.timeGapValue = options.timeGap ?? 1.5;
@@ -128,9 +153,22 @@ export class Simulation {
     );
     this.sensorSuite.update(0, this.state);
     this.sensorData = this.sensorSuite.snapshot;
+    this.trackingData = this.tracker.update(this.sensorData, this.state, 0);
     this.cameraTrafficData = this.trafficData;
     this.safetyData = assessSafety(this.state, 0, this.sensorData, 0, false);
-    if (options.scenario) this.selectScenario(options.scenario);
+    if (options.scenario) {
+      this.selectScenario(options.scenario);
+      if (
+        Object.keys(initial).some(
+          (key) =>
+            initial[key as keyof VehicleState] !==
+            INITIAL_STATE[key as keyof VehicleState],
+        )
+      ) {
+        this.initial = { ...initial };
+        this.reset();
+      }
+    }
   }
 
   /** Geometry is used by physics/rendering/generators only, not the behaviour planner. */
@@ -153,6 +191,9 @@ export class Simulation {
       ...this.trafficData.staticObstacles,
       ...this.trafficData.actors.map((a) => a.object),
     );
+  }
+  get tracking(): TrackingSnapshot {
+    return this.trackingData;
   }
   get cameraTraffic(): TrafficSnapshot {
     return this.cameraTrafficData;
@@ -312,7 +353,8 @@ export class Simulation {
     // actor poses, not the poses from the experiment being replaced.
     const resetObjects = [
       ...this.staticObjects,
-      ...new TrafficWorld(this.trafficData.scenario).objects,
+      ...new TrafficWorld(this.trafficData.scenario, this.trafficVariant)
+        .objects,
     ];
     if (
       resetObjects.some(
@@ -469,9 +511,11 @@ export class Simulation {
     this.syncTrafficGeometry();
     this.planner.reset();
     this.containmentStop = false;
+    this.tracker.reset();
     this.sensorSuite.reset();
     this.sensorSuite.update(0, this.state);
     this.sensorData = this.sensorSuite.snapshot;
+    this.trackingData = this.tracker.update(this.sensorData, this.state, 0);
     this.cameraTrafficData = this.trafficData;
     this.safetyLatch = null;
     this.physicalStop = false;
@@ -511,6 +555,7 @@ export class Simulation {
         this.ticks * FIXED_DT,
         autonomous,
         {
+          tracks: this.fusedControl ? this.trackingData.tracks : undefined,
           route: this.route,
           progress: this.navigator?.telemetry.progress ?? 0,
           timeGap: this.timeGapValue,
@@ -670,12 +715,18 @@ export class Simulation {
     }
     this.roadStatus = road;
     const previousCameraFrame = this.sensorData.camera;
-    this.sensorSuite.update(
-      now,
-      this.state,
-      (this.state.heading - previous.heading) / FIXED_DT,
-    );
+    if (
+      !this.sensorDropout ||
+      now < this.sensorDropout.start ||
+      now >= this.sensorDropout.end
+    )
+      this.sensorSuite.update(
+        now,
+        this.state,
+        (this.state.heading - previous.heading) / FIXED_DT,
+      );
     this.sensorData = this.sensorSuite.snapshot;
+    this.trackingData = this.tracker.update(this.sensorData, this.state, now);
     if (this.sensorData.camera !== previousCameraFrame)
       this.cameraTrafficData = this.trafficData;
     const last = this.trajectory.at(-1);

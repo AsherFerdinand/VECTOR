@@ -16,6 +16,9 @@ import { Dashboard, cameraLabels } from "./components/Dashboard";
 import { Minimap } from "./components/Minimap";
 import { SensorExplorer } from "./components/SensorExplorer";
 import type { SensorSource } from "./sensors/types";
+import { PerceptionTracks } from "./components/PerceptionTracks";
+import { ValidationStudio } from "./components/ValidationStudio";
+import { PlanningView } from "./components/PlanningView";
 
 class SceneBoundary extends Component<
   { children: ReactNode },
@@ -42,8 +45,12 @@ class SceneBoundary extends Component<
 
 export default function App() {
   const [simulation] = useState(
-    () => new Simulation(INITIAL_STATE, { scenario: "normal" }),
+    () =>
+      new Simulation(INITIAL_STATE, { scenario: "normal", fusedControl: true }),
   );
+  const [workspace, setWorkspace] = useState<
+    "drive" | "perception" | "compute" | "validate"
+  >("drive");
   const [camera, setCamera] = useState<CameraMode>("follow");
   const [snapshot, setSnapshot] = useState(() => simulation.snapshot);
   const [navigation, setNavigation] = useState(() => simulation.navigation);
@@ -152,7 +159,7 @@ export default function App() {
         </a>
         <div className="project-name">
           Autonomous Driving & Engineering Studio
-          <span>TRAFFIC & AUTONOMOUS BEHAVIOUR / v0.5</span>
+          <span>TRACKING, PLANNING & VALIDATION / v0.8</span>
         </div>
         <span className="mode-badge" data-mode={navigation.mode}>
           {navigation.mode}
@@ -162,31 +169,55 @@ export default function App() {
           {snapshot.running ? "RUNNING" : "PAUSED"}
         </div>
       </header>
-      <main>
+      <nav className="workspace-tabs" aria-label="Engineering workspace">
+        {(["drive", "perception", "compute", "validate"] as const).map(
+          (name) => (
+            <button
+              key={name}
+              aria-pressed={workspace === name}
+              onClick={() => {
+                setWorkspace(name);
+                if (name === "compute") setSensorTab("compute");
+                else if (name === "perception" && sensorTab === "compute")
+                  setSensorTab("lidar");
+                if (name === "validate") {
+                  simulation.pause();
+                  refresh();
+                }
+              }}
+            >
+              {name[0].toUpperCase() + name.slice(1)}
+            </button>
+          ),
+        )}
+      </nav>
+      <main data-workspace={workspace}>
         <section className="workspace">
           <div className="workspace-title">
             <div>
-              <span className="eyebrow">EXPERIMENT 005</span>
-              <h1>Traffic & autonomy laboratory</h1>
+              <span className="eyebrow">EXPERIMENT 008</span>
+              <h1>Autonomy engineering laboratory</h1>
             </div>
             <span className="environment-label">
               VECTOR TOWN <span> / </span> DAYLIGHT
             </span>
           </div>
-          <ScenarioSelector
-            scenario={traffic.scenario}
-            timeGap={timeGap}
-            onSelect={(id) => {
-              keyboard.current?.clear();
-              simulation.selectScenario(id);
-              refresh();
-            }}
-            onTimeGap={(gap) => {
-              simulation.setTimeGap(gap);
-              setTimeGap(gap);
-              refresh();
-            }}
-          />
+          <div className="drive-controls">
+            <ScenarioSelector
+              scenario={traffic.scenario}
+              timeGap={timeGap}
+              onSelect={(id) => {
+                keyboard.current?.clear();
+                simulation.selectScenario(id);
+                refresh();
+              }}
+              onTimeGap={(gap) => {
+                simulation.setTimeGap(gap);
+                setTimeGap(gap);
+                refresh();
+              }}
+            />
+          </div>
           <div className="viewport">
             <SceneBoundary>
               <Scene
@@ -207,170 +238,186 @@ export default function App() {
               SIMULATION ENVIRONMENT<span>01 / COMPACT TOWN</span>
             </div>
           </div>
-          <div
-            className="toolbar"
-            onClick={(event) => {
-              // Mouse-operated controls return keyboard driving to the viewport.
-              if (event.detail > 0 && event.target instanceof HTMLElement) {
-                event.target.closest("button")?.blur();
-              }
-            }}
-          >
-            <div className="transport">
-              <button
-                className="primary"
-                onClick={() => {
-                  simulation.start();
-                  refresh();
-                }}
-                disabled={snapshot.running}
-              >
-                ▶ {snapshot.time > 0 ? "Resume" : "Start"}
-              </button>
-              <button
-                onClick={() => {
-                  keyboard.current?.clear();
-                  simulation.pause();
-                  refresh();
-                }}
-                disabled={!snapshot.running}
-              >
-                Ⅱ Pause
-              </button>
-              <button onClick={reset}>↺ Reset</button>
+          <div className="drive-controls">
+            <div
+              className="toolbar"
+              onClick={(event) => {
+                // Mouse-operated controls return keyboard driving to the viewport.
+                if (event.detail > 0 && event.target instanceof HTMLElement) {
+                  event.target.closest("button")?.blur();
+                }
+              }}
+            >
+              <div className="transport">
+                <button
+                  className="primary"
+                  onClick={() => {
+                    simulation.start();
+                    refresh();
+                  }}
+                  disabled={snapshot.running}
+                >
+                  ▶ {snapshot.time > 0 ? "Resume" : "Start"}
+                </button>
+                <button
+                  onClick={() => {
+                    keyboard.current?.clear();
+                    simulation.pause();
+                    refresh();
+                  }}
+                  disabled={!snapshot.running}
+                >
+                  Ⅱ Pause
+                </button>
+                <button onClick={reset}>↺ Reset</button>
+              </div>
+              <div className="camera-controls" aria-label="Camera selection">
+                {(["overview", "follow", "cockpit"] as const).map(
+                  (mode, index) => (
+                    <button
+                      key={mode}
+                      aria-pressed={camera === mode}
+                      onClick={() => setCamera(mode)}
+                    >
+                      <kbd>{index + 1}</kbd>
+                      {cameraLabels[mode]}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
-            <div className="camera-controls" aria-label="Camera selection">
-              {(["overview", "follow", "cockpit"] as const).map(
-                (mode, index) => (
-                  <button
-                    key={mode}
-                    aria-pressed={camera === mode}
-                    onClick={() => setCamera(mode)}
-                  >
-                    <kbd>{index + 1}</kbd>
-                    {cameraLabels[mode]}
-                  </button>
-                ),
-              )}
+            <div
+              className="navigation-strip"
+              aria-label="Live navigation summary"
+            >
+              <div>
+                <span>Driving state</span>
+                <strong>{behaviour.state.replaceAll("_", " ")}</strong>
+              </div>
+              <div>
+                <span>Target speed</span>
+                <strong>
+                  {navigation.targetSpeed === null
+                    ? "—"
+                    : (navigation.targetSpeed * 3.6).toFixed(1) + " km/h"}
+                </strong>
+              </div>
+              <div>
+                <span>Cross-track error</span>
+                <strong>
+                  {navigation.crossTrackError === null
+                    ? "—"
+                    : navigation.crossTrackError.toFixed(2) + " m"}
+                </strong>
+              </div>
+              <div>
+                <span>Route progress</span>
+                <strong>
+                  {navigation.mode === "AUTONOMOUS"
+                    ? (navigation.progress * 100).toFixed(1) + " %"
+                    : "—"}
+                </strong>
+              </div>
+            </div>
+            <div className="view-options">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={engineering}
+                  onChange={(e) => setEngineering(e.target.checked)}
+                />{" "}
+                Engineering overlay
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={collisionOverlay}
+                  onChange={(e) => setCollisionOverlay(e.target.checked)}
+                />{" "}
+                Collision & road geometry
+              </label>
+              <span>Turquoise: planned · Amber: actual · Blue: measured</span>
+            </div>
+            <div className="keyboard-reference">
+              <span className="eyebrow">MANUAL CONTROLS</span>
+              <span>
+                <kbd>W</kbd>
+                <kbd>↑</kbd> Accelerate
+              </span>
+              <span>
+                <kbd>S</kbd>
+                <kbd>↓</kbd> Brake / reverse
+              </span>
+              <span>
+                <kbd>A</kbd>
+                <kbd>D</kbd>
+                <kbd>←</kbd>
+                <kbd>→</kbd> Steer
+              </span>
+              <span>
+                <kbd>SPACE</kbd> Brake
+              </span>
+              <span>
+                <kbd>R</kbd> Reset
+              </span>
+            </div>
+            <div
+              className="physical-strip"
+              aria-label="Physical and safety status"
+            >
+              <div>
+                <span>Road footprint</span>
+                <strong
+                  className={physical.roadStatus === "ON_ROAD" ? "" : "warning"}
+                >
+                  {physical.roadStatus.replaceAll("_", " ")}
+                </strong>
+              </div>
+              <div>
+                <span>Physical contacts / departures</span>
+                <strong>
+                  {physical.collisionCount} / {physical.roadDepartureCount}
+                </strong>
+              </div>
+              <div>
+                <span>Swept containment / sensor protection</span>
+                <strong className={safety.braking ? "warning" : ""}>
+                  {physical.sweptRoadStatus.replaceAll("_", " ")} /{" "}
+                  {safety.state.replaceAll("_", " ")}
+                </strong>
+              </div>
             </div>
           </div>
-          <div
-            className="navigation-strip"
-            aria-label="Live navigation summary"
-          >
-            <div>
-              <span>Driving state</span>
-              <strong>{behaviour.state.replaceAll("_", " ")}</strong>
-            </div>
-            <div>
-              <span>Target speed</span>
-              <strong>
-                {navigation.targetSpeed === null
-                  ? "—"
-                  : (navigation.targetSpeed * 3.6).toFixed(1) + " km/h"}
-              </strong>
-            </div>
-            <div>
-              <span>Cross-track error</span>
-              <strong>
-                {navigation.crossTrackError === null
-                  ? "—"
-                  : navigation.crossTrackError.toFixed(2) + " m"}
-              </strong>
-            </div>
-            <div>
-              <span>Route progress</span>
-              <strong>
-                {navigation.mode === "AUTONOMOUS"
-                  ? (navigation.progress * 100).toFixed(1) + " %"
-                  : "—"}
-              </strong>
-            </div>
+          {workspace === "perception" && (
+            <PerceptionTracks
+              tracking={simulation.tracking}
+              vehicle={snapshot.vehicle}
+            />
+          )}
+          <div hidden={workspace !== "compute"}>
+            <PlanningView behaviour={behaviour} />
           </div>
-          <div className="view-options">
-            <label>
-              <input
-                type="checkbox"
-                checked={engineering}
-                onChange={(e) => setEngineering(e.target.checked)}
-              />{" "}
-              Engineering overlay
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={collisionOverlay}
-                onChange={(e) => setCollisionOverlay(e.target.checked)}
-              />{" "}
-              Collision & road geometry
-            </label>
-            <span>Turquoise: planned · Amber: actual · Blue: measured</span>
+          <div hidden={workspace !== "validate"}>
+            <ValidationStudio />
           </div>
-          <div className="keyboard-reference">
-            <span className="eyebrow">MANUAL CONTROLS</span>
-            <span>
-              <kbd>W</kbd>
-              <kbd>↑</kbd> Accelerate
-            </span>
-            <span>
-              <kbd>S</kbd>
-              <kbd>↓</kbd> Brake / reverse
-            </span>
-            <span>
-              <kbd>A</kbd>
-              <kbd>D</kbd>
-              <kbd>←</kbd>
-              <kbd>→</kbd> Steer
-            </span>
-            <span>
-              <kbd>SPACE</kbd> Brake
-            </span>
-            <span>
-              <kbd>R</kbd> Reset
-            </span>
+          <div className="explorer-workspace">
+            <SensorExplorer
+              simulation={simulation}
+              behaviour={behaviour}
+              sensors={sensors}
+              safety={safety}
+              physical={physical}
+              navigation={navigation}
+              vehicle={snapshot.vehicle}
+              tab={sensorTab}
+              onTab={(tab) => {
+                setSensorTab(tab);
+                setSensorOverlay(false);
+              }}
+              overlay={sensorOverlay}
+              onOverlay={setSensorOverlay}
+            />
           </div>
-          <div
-            className="physical-strip"
-            aria-label="Physical and safety status"
-          >
-            <div>
-              <span>Road footprint</span>
-              <strong
-                className={physical.roadStatus === "ON_ROAD" ? "" : "warning"}
-              >
-                {physical.roadStatus.replaceAll("_", " ")}
-              </strong>
-            </div>
-            <div>
-              <span>Physical contacts / departures</span>
-              <strong>
-                {physical.collisionCount} / {physical.roadDepartureCount}
-              </strong>
-            </div>
-            <div>
-              <span>Swept containment / sensor protection</span>
-              <strong className={safety.braking ? "warning" : ""}>
-                {physical.sweptRoadStatus.replaceAll("_", " ")} /{" "}
-                {safety.state.replaceAll("_", " ")}
-              </strong>
-            </div>
-          </div>
-          <SensorExplorer
-            simulation={simulation}
-            behaviour={behaviour}
-            sensors={sensors}
-            safety={safety}
-            physical={physical}
-            navigation={navigation}
-            vehicle={snapshot.vehicle}
-            tab={sensorTab}
-            onTab={(tab) => {
-              setSensorTab(tab);
-              setSensorOverlay(false);
-            }}
-            overlay={sensorOverlay}
-            onOverlay={setSensorOverlay}
-          />
         </section>
         <div
           className="sidebar"
@@ -421,7 +468,7 @@ export default function App() {
           VECTOR <b> / </b> Build the world. Sense the road. Navigate
           autonomously.
         </span>
-        <span>EDUCATIONAL SIMULATION · v0.5</span>
+        <span>EDUCATIONAL SIMULATION · v0.8</span>
       </footer>
     </div>
   );

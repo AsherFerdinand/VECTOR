@@ -24,6 +24,7 @@ export const BEHAVIOUR_LIMITS = Object.freeze({
 const FRONT = (VEHICLE.length + VEHICLE.wheelbase) / 2;
 const HALF_WIDTH = VEHICLE.width / 2 + BEHAVIOUR_LIMITS.lateralMargin;
 interface ObservedPoint extends Point {
+  fused?: boolean;
   world: Point;
   source: "lidar" | "camera" | "radar";
   timestamp: number;
@@ -305,7 +306,28 @@ export class BehaviourPlanner {
         .sort((a, b) => a.distance - b.distance)[0];
       if (semantic) observation.objectClass = semantic.point.objectClass;
     }
-    const points: ObservedPoint[] = [...camera, ...radar];
+    const fused: ObservedPoint[] = (context.tracks ?? [])
+      .filter(
+        (t) =>
+          t.status === "confirmed" &&
+          fresh(t.lastMeasurementTime, now) &&
+          t.covariance[0][0] + t.covariance[1][1] < 4,
+      )
+      .map((t) => ({
+        ...localPoint(t, vehicle),
+        world: { x: t.x, y: t.y },
+        source: t.sources.includes("radar")
+          ? ("radar" as const)
+          : ("camera" as const),
+        timestamp: t.lastMeasurementTime,
+        objectClass: t.objectClass,
+        fused: true,
+        relativeSpeed:
+          t.vx * Math.cos(vehicle.heading) +
+          t.vy * Math.sin(vehicle.heading) -
+          vehicle.velocity,
+      }));
+    const points: ObservedPoint[] = [...fused, ...camera, ...radar];
     if (lidar && fresh(lidar.timestamp, now))
       for (const ray of lidar.rays)
         if (ray.hit)
@@ -334,6 +356,9 @@ export class BehaviourPlanner {
     );
     // Prefer range-rate observations; no simulator identity or exact actor state is used.
     const lead =
+      vehicles
+        .filter((item) => item.point.fused)
+        .sort((a, b) => a.projection.gap - b.projection.gap)[0] ??
       vehicles
         .filter((item) => item.point.source === "radar")
         .sort((a, b) => a.projection.gap - b.projection.gap)[0] ??
@@ -388,6 +413,102 @@ export class BehaviourPlanner {
           };
           break;
         }
+      }
+    }
+    // Predict crossing conflicts from qualified measured tracks. A current-point
+    // corridor test alone cannot react in time to lateral arrivals at intersections.
+    if (!hazard && speed > 0.1) {
+      for (const track of context.tracks ?? []) {
+        if (
+          track.status !== "confirmed" ||
+          !fresh(track.lastMeasurementTime, now) ||
+          !["vehicle", "pedestrian"].includes(track.objectClass ?? "") ||
+          track.covariance[0][0] + track.covariance[1][1] >= 4
+        )
+          continue;
+        const lateralSpeed =
+          -Math.sin(vehicle.heading) * track.vx +
+          Math.cos(vehicle.heading) * track.vy;
+        const longitudinalSpeed =
+          Math.cos(vehicle.heading) * track.vx +
+          Math.sin(vehicle.heading) * track.vy;
+        const sh = Math.sin(vehicle.heading),
+          ch = Math.cos(vehicle.heading);
+        const lateralVariance = Math.max(
+          0,
+          sh * sh * track.covariance[2][2] +
+            ch * ch * track.covariance[3][3] -
+            2 * sh * ch * track.covariance[2][3],
+        );
+        if (
+          Math.abs(lateralSpeed) <
+            Math.max(1.2, 2 * Math.sqrt(lateralVariance)) ||
+          Math.abs(lateralSpeed) < Math.abs(longitudinalSpeed)
+        )
+          continue;
+        const current: ObservedPoint = {
+          ...localPoint(track, vehicle),
+          world: track,
+          source: "radar",
+          timestamp: track.lastMeasurementTime,
+          relativeSpeed: null,
+        };
+        const currentProjection = pathProjection(
+          current,
+          vehicle,
+          requested.steering,
+          context,
+        );
+        if (
+          currentProjection.gap < 0 ||
+          currentProjection.gap > 35 ||
+          Math.abs(currentProjection.lateral) <= HALF_WIDTH ||
+          currentProjection.lateral * lateralSpeed >= -0.3
+        )
+          continue;
+        const uncertainty = Math.min(
+          1,
+          2 *
+            Math.sqrt(Math.max(track.covariance[0][0], track.covariance[1][1])),
+        );
+        for (let horizon = 0.2; horizon <= 3.5; horizon += 0.1) {
+          const world = {
+            x: track.x + track.vx * horizon,
+            y: track.y + track.vy * horizon,
+          };
+          const future: ObservedPoint = {
+            ...current,
+            ...localPoint(world, vehicle),
+            world,
+          };
+          const projection = pathProjection(
+            future,
+            vehicle,
+            requested.steering,
+            context,
+          );
+          // No inferred body heading is available: use a conservative class envelope.
+          const envelope = track.objectClass === "vehicle" ? 2.5 : 0.5;
+          if (
+            Math.abs(projection.lateral) >
+              HALF_WIDTH + envelope + uncertainty ||
+            Math.abs(projection.gap - speed * horizon) > 3 + uncertainty
+          )
+            continue;
+          const emergency =
+            horizon < 1.5 &&
+            currentProjection.gap <= stoppingDistance + speed * 0.3;
+          hazard = {
+            state: emergency ? "AEB" : "BLOCKED",
+            emergency,
+            reason: `Fused measured velocity predicts a crossing conflict within ${horizon.toFixed(1)} s; yielding before the conflict corridor.`,
+            gap: Math.max(0, currentProjection.gap - envelope - uncertainty),
+            timestamp: track.lastMeasurementTime,
+            source: track.sources.includes("radar") ? "radar" : "camera",
+          };
+          break;
+        }
+        if (hazard) break;
       }
     }
     if (!hazard) {
@@ -625,7 +746,17 @@ export class BehaviourPlanner {
     this.previousAcceleration = acceleration;
     this.data = {
       state,
-      reason,
+      perceptionMode:
+        context.tracks === undefined
+          ? "raw"
+          : lead?.point.fused
+            ? "fused"
+            : "degraded",
+      reason:
+        context.tracks !== undefined && !lead?.point.fused
+          ? reason +
+            " Fusion has no qualified lead; raw measurements retain safety priority."
+          : reason,
       leadDistance: gap,
       relativeSpeed,
       desiredGap,

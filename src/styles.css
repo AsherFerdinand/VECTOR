@@ -1235,3 +1235,142 @@ main {
     flex-wrap: wrap;
   }
 }
+
+/* Workspaces share the same live simulation and existing sensor explorer. */
+.workspace-tabs {
+  display: flex;
+  gap: 8px;
+  padding-top: 18px;
+}
+.workspace-tabs button {
+  min-width: 100px;
+}
+main:not([data-workspace="drive"]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+main:not([data-workspace="drive"]) .sidebar,
+main:not([data-workspace="drive"]) .drive-controls {
+  display: none;
+}
+main[data-workspace="compute"] .viewport,
+main[data-workspace="validate"] .viewport,
+main[data-workspace="validate"] .explorer-workspace {
+  display: none;
+}
+main[data-workspace="perception"] .viewport {
+  height: 300px;
+  min-height: 260px;
+}
+.engineering-panel {
+  border: 1px solid #354a5a;
+  border-radius: 7px;
+  background: #131d29;
+  margin-top: 20px;
+  overflow: hidden;
+}
+.engineering-panel h2 {
+  font-size: 20px;
+  font-weight: 500;
+}
+.tracking-plot {
+  display: block;
+  width: 100%;
+  height: 300px;
+  background: #0e1b28;
+  border: 1px solid #2d465a;
+  border-radius: 5px;
+}
+.validation-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.validation-form label {
+  display: grid;
+  gap: 7px;
+  color: #a8bed0;
+  font-size: 11px;
+}
+.validation-form input,
+.validation-form select {
+  background: #182b38;
+  border: 1px solid #3a5568;
+  padding: 9px;
+  color: #d2e4ee;
+  border-radius: 4px;
+  width: 120px;
+}
+.validation-form select {
+  width: 240px;
+}
+.validation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 15px 0;
+}
+.validation-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.validation-metrics > div {
+  border: 1px solid #324757;
+  border-radius: 4px;
+  padding: 12px;
+}
+.validation-metrics span {
+  font-size: 10px;
+  color: #8fa9bc;
+  display: block;
+  margin-bottom: 8px;
+}
+.validation-metrics strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: #c8e7e0;
+}
+.validation-pass {
+  color: #a7e8c8;
+}
+.validation-fail {
+  color: #efa58d;
+}
+.validation-replay input[type="range"] {
+  width: 100%;
+  accent-color: #a7e8c8;
+}
+.validation-replay svg,
+.planning-plot {
+  width: 100%;
+  height: 260px;
+  display: block;
+  background: #0e1b28;
+  border: 1px solid #2d465a;
+  border-radius: 5px;
+}
+.validation-events {
+  max-height: 200px;
+  overflow: auto;
+  padding-left: 20px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: #adc6d6;
+}
+@media (max-width: 760px) {
+  .workspace-tabs button {
+    min-width: 0;
+    flex: 1;
+    padding: 10px 7px;
+  }
+  .validation-form select {
+    width: 220px;
+  }
+}
+.corridor-seek {
+  width: 100%;
+  accent-color: #a7e8c8;
+  margin-bottom: 16px;
+}

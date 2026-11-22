@@ -11,6 +11,7 @@ import type {
   SignalMap,
   TrafficActor,
   TrafficSnapshot,
+  TrafficVariant,
 } from "./trafficTypes";
 
 export const SCENARIOS: {
@@ -303,7 +304,10 @@ export class TrafficWorld {
   private time = 0;
   private halted = new Map<string, TrafficActor>();
   private previousActors: TrafficActor[] = [];
-  constructor(scenario: ScenarioId | null = null) {
+  constructor(
+    scenario: ScenarioId | null = null,
+    private readonly variant?: TrafficVariant,
+  ) {
     this.scenario = scenario;
   }
   reset(scenario: ScenarioId | null = this.scenario): void {
@@ -370,6 +374,26 @@ export class TrafficWorld {
           y: crossing[0].y + walk.distance,
           heading: Math.PI / 2,
           velocity: walk.speed,
+        }),
+      ];
+    }
+    if (this.variant === "dynamic-block")
+      actors = [
+        actor("dynamic-block", "vehicle", {
+          x: 0,
+          y: southRoad.from[1] - laneOffset,
+          heading: 0,
+          velocity: 0,
+        }),
+      ];
+    if (this.variant === "intersection-conflict") {
+      const motion = travelFromRest(Math.max(0, this.time - 4), 3, 30, 2);
+      actors = [
+        actor("intersection-conflict", "vehicle", {
+          x: 29.25,
+          y: -45 + motion.distance,
+          heading: Math.PI / 2,
+          velocity: motion.speed,
         }),
       ];
     }

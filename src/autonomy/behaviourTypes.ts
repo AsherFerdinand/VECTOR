@@ -10,6 +10,7 @@ export type DrivingState =
   | "STALE_STOP"
   | "DESTINATION_REACHED";
 export interface BehaviourSnapshot {
+  perceptionMode?: "raw" | "fused" | "degraded";
   state: DrivingState;
   reason: string;
   leadDistance: number | null;
@@ -28,6 +29,7 @@ export interface BehaviourSnapshot {
 }
 /** Only map/localisation/route information is permitted alongside measured observations. */
 export interface BehaviourContext {
+  tracks?: import("../perception/types").Track[];
   route: Route | null;
   progress: number;
   timeGap: number;

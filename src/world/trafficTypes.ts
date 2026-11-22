@@ -8,6 +8,7 @@ export type ScenarioId =
   | "red-light"
   | "pedestrian"
   | "blocked";
+export type TrafficVariant = "intersection-conflict" | "dynamic-block";
 export type SignalColor = "red" | "yellow" | "green";
 /** Static map geometry; a light's changing colour is available only through observations. */
 export interface SignalMap {
